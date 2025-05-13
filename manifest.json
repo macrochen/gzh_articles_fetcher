@@ -1,0 +1,48 @@
+{
+  "manifest_version": 3,
+  "name": "公众号文章采集器",
+  "version": "1.0",
+  "description": "自动采集微信公众号文章并支持导出到 Google Drive",
+  "permissions": [
+    "tabs",
+    "storage",
+    "identity",
+    "scripting",
+    "clipboardWrite"
+  ],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'; connect-src https://generativelanguage.googleapis.com https://www.googleapis.com;"
+  },
+  "host_permissions": [
+    "https://mp.weixin.qq.com/*",
+    "https://generativelanguage.googleapis.com/*",
+    "https://www.googleapis.com/*"
+  ],
+  "oauth2": {
+    "client_id": "43547905274-7slrhl64qd7ou9nl4brp2j366ubc0fhk.apps.googleusercontent.com",
+    "scopes": [
+      "https://www.googleapis.com/auth/drive"
+    ]
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [{
+    "matches": ["*://mp.weixin.qq.com/*"],
+    "js": ["Readability.js", "content.js"]
+  }],
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_icon": {
+      "16": "assets/icons/icon.png",
+      "48": "assets/icons/icon.png",
+      "128": "assets/icons/icon.png"
+    }
+  },
+  "options_page": "options/options.html",
+  "icons": {
+    "16": "assets/icons/icon.png",
+    "48": "assets/icons/icon.png",
+    "128": "assets/icons/icon.png"
+  }
+}

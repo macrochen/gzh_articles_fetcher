@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>文章管理与对话</title>
+  <link rel="stylesheet" href="options.css">
+  <script src="lib/marked.min.js"></script>
+</head>
+<body>
+  <div class="main-container">
+    <!-- 左侧区域 -->
+    <div class="sidebar">
+      <h1>文章列表</h1>
+      <div class="settings-section collapsed">
+        <div class="settings-header">
+          <h2>Gemini API 设置</h2>
+          <span class="toggle-icon">▼</span>
+        </div>
+        <div class="settings-content">
+          <div>
+            <label for="geminiApiKey">API Key:</label>
+            <input type="password" id="geminiApiKey" placeholder="请输入您的 Google Gemini API Key">
+          </div>
+          <div>
+            <label for="summaryPrompt">总结提示词:</label>
+            <textarea id="summaryPrompt" rows="4" placeholder="例如：请总结以下内容" style="width: 100%;"></textarea>
+          </div>
+          <button id="saveSettings">保存设置</button>
+        </div>
+      </div>
+      <div class="articles-list" id="articlesList"></div>
+      <div class="actions">
+        <button id="exportToDrive">全部导出到 Google Drive</button>
+      </div>
+    </div>
+
+    <!-- 右侧聊天区域 -->
+    <div class="chat-area">
+      <h2 id="chatWindowTitle">与 Gemini 对话</h2>
+      <div class="chat-history" id="chatHistory">
+        <!-- 聊天记录将显示在这里 -->
+      </div>
+      <div class="chat-input-area">
+        <textarea id="chatInput" placeholder="输入您的问题..."></textarea>
+        <button id="sendChatMessage">发送</button>
+      </div>
+    </div>
+  </div>
+  <script src="options.js"></script>
+</body>
+</html>
