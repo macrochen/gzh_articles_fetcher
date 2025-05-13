@@ -20,12 +20,26 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 // 保存文章到本地存储
 async function saveArticle(article) {
   try {
-    // 获取现有文章列表
-    const result = await chrome.storage.local.get('articles');
+    // 获取现有文章列表和设置
+    const result = await chrome.storage.local.get(['articles', 'geminiApiKey', 'summaryPrompt']);
     const articles = result.articles || [];
+    const apiKey = result.geminiApiKey;
+    const summaryPrompt = result.summaryPrompt;
     
     // 检查文章是否已存在（基于标题去重）
     if (!articles.some(a => a.title === article.title)) {
+      // 如果有 API Key 和提示词，立即生成总结
+      if (apiKey && summaryPrompt && article.textContent) {
+        try {
+          article.summary = ""; // todo await summarizeTextWithGemini(apiKey, article.textContent, summaryPrompt);
+        } catch (error) {
+          console.error('生成总结失败:', error);
+          article.summary = '总结失败: ' + error.message;
+        }
+      } else {
+        article.summary = '无总结 (请配置API Key和提示词)';
+      }
+      
       articles.push(article);
       await chrome.storage.local.set({ articles });
     }
