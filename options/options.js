@@ -61,8 +61,8 @@ async function loadArticles() {
 
   listElement.innerHTML = sortedArticles.map(article => `
     <div class="article-item collapsed">
-      <div class="article-header" onclick="toggleArticle(this)">
-        <h3><a href="${article.url}" target="_blank" onclick="event.stopPropagation()">${article.title}</a></h3>
+      <div class="article-header">
+        <h3><a href="${article.url}" target="_blank">${article.title}</a></h3>
         <span class="toggle-icon">▼</span>
       </div>
       <div class="article-content">
@@ -71,23 +71,38 @@ async function loadArticles() {
           '<div class="summary"><em>无总结 (请配置API Key和提示词后重新加载)</em></div>'
         }
         <div class="actions">
-          <button class="chat" onclick="event.stopPropagation(); startChatWithArticle('${article.title.replace(/'/g, "&#39;")}')">
+          <button class="chat" data-article-title="${article.title.replace(/'/g, "&#39;")}">
             开始对话
           </button>
-          <button class="delete" onclick="event.stopPropagation(); deleteArticle('${article.title.replace(/'/g, "&#39;")}')">
+          <button class="delete" data-article-title="${article.title.replace(/'/g, "&#39;")}">
             删除文章
           </button>
         </div>
       </div>
     </div>
   `).join('');
+
 }
 
 // 添加切换文章折叠状态的函数
-function toggleArticle(header) {
-  const articleItem = header.closest('.article-item');
-  articleItem.classList.toggle('collapsed');
-}
+function toggleArticle(articleItem) {
+    const articleContent = articleItem.querySelector('.article-content');
+    const toggleIcon = articleItem.querySelector('.toggle-icon');
+
+    if (articleContent) {
+      if (articleItem.classList.contains('collapsed')) {
+        articleItem.classList.remove('collapsed');
+        if (toggleIcon) {
+          toggleIcon.textContent = '▼'; // 展开时显示向下箭头
+        }
+      } else {
+        articleItem.classList.add('collapsed');
+        if (toggleIcon) {
+          toggleIcon.textContent = '▶'; // 折叠时显示向右箭头
+        }
+      }
+    }
+  }
 
 // 编辑文章标题
 async function editArticle(title) {
@@ -329,22 +344,6 @@ async function exportToDrive() {
   }
 }
 
-// 绑定事件监听器
-document.addEventListener('DOMContentLoaded', () => {
-  loadSettings(); // 先加载设置
-  loadArticles(); // 然后加载文章，这样可以立即尝试生成总结
-  document.getElementById('saveSettings').addEventListener('click', saveSettings);
-  document.getElementById('exportToDrive').addEventListener('click', exportToDrive);
-  document.getElementById('sendChatMessage').addEventListener('click', sendChatMessage);
-  // 允许按 Enter 键发送消息
-  document.getElementById('chatInput').addEventListener('keypress', function (e) {
-    if (e.key === 'Enter' && !e.shiftKey) { // Shift+Enter 用于换行
-      e.preventDefault(); // 阻止默认的 Enter 行为 (如换行)
-      sendChatMessage();
-    }
-  });
-});
-
 // 使用 Gemini API 总结文本
 async function summarizeTextWithGemini(apiKey, textToSummarize, userPrompt) {
   // 注意：这里需要替换为实际的 Gemini API endpoint 和请求格式
@@ -458,18 +457,12 @@ document.getElementById('saveSettings').addEventListener('click', saveSettings);
 // 绑定导出按钮事件
 document.getElementById('exportToDrive').addEventListener('click', exportToDrive);
 
-// 初始化加载
-document.addEventListener('DOMContentLoaded', () => {
-  loadArticles();
-  loadSettings(); // 加载已保存的 API Key 和提示词
-});
 
 function toggleSettings(header) {
   const section = header.closest('.settings-section');
   section.classList.toggle('collapsed');
 }
 
-// 在 DOMContentLoaded 事件监听器中添加
 document.addEventListener('DOMContentLoaded', () => {
   loadSettings(); // 先加载设置
   loadArticles(); // 然后加载文章，这样可以立即尝试生成总结
@@ -490,5 +483,49 @@ document.addEventListener('DOMContentLoaded', () => {
       const section = this.closest('.settings-section');
       section.classList.toggle('collapsed');
     });
+  }
+
+  // 为文章列表中的每个文章项添加事件监听器
+  if (articlesList) {  // 确保 articlesList 存在
+    articlesList.addEventListener('click', (event) => {
+      const target = event.target;
+        // 找到最近的 article-header
+      const articleHeader = target.closest('.article-header');
+      if (articleHeader) {
+        const articleItem = articleHeader.parentNode;
+        const articleContent = articleItem.querySelector('.article-content');
+        const toggleIcon = articleHeader.querySelector('.toggle-icon');
+
+        if (articleContent) {
+          if (articleItem.classList.contains('collapsed')) {
+            articleItem.classList.remove('collapsed');
+             if (toggleIcon) {
+                toggleIcon.textContent = '▼';
+              }
+          } else {
+            articleItem.classList.add('collapsed');
+             if (toggleIcon) {
+                  toggleIcon.textContent = '▶';
+              }
+          }
+        }
+      }
+    });
+
+    // 为所有聊天按钮添加事件监听器
+    document.querySelectorAll('.chat').forEach(button => {
+        button.addEventListener('click', (e) => {
+          e.stopPropagation();
+          startChatWithArticle(button.dataset.articleTitle);
+        });
+      });
+      
+      // 为所有删除按钮添加事件监听器
+      document.querySelectorAll('.delete').forEach(button => {
+        button.addEventListener('click', (e) => {
+          e.stopPropagation();
+          deleteArticle(button.dataset.articleTitle);
+        });
+      });
   }
 });
