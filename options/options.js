@@ -40,20 +40,10 @@ async function loadArticles() {
     return;
   }
 
-  // 如果有API Key和提示词，则为没有总结的文章生成总结
-  if (apiKey && summaryPrompt) {
-    let articlesUpdated = false;
-    for (let article of articles) {
-      if (typeof article.summary === 'undefined') {
-        console.log(`为文章 "${article.title}" 生成总结...`);
-        article.summary = "" // todo await summarizeTextWithGemini(apiKey, article.textContent, summaryPrompt);
-        articlesUpdated = true;
-      }
-    }
-    if (articlesUpdated) {
-      await chrome.storage.local.set({ articles });
-      console.log('部分文章总结已更新并保存。');
-    }
+  const local_result = await chrome.storage.local.get('latestSummary');
+  if (local_result.latestSummary) {
+    // 显示最新的总结
+    updateArticleSummaries(local_result.latestSummary);
   }
 
   // 倒序排列文章
@@ -62,79 +52,30 @@ async function loadArticles() {
   listElement.innerHTML = sortedArticles.map(article => `
     <div class="article-item collapsed">
       <div class="article-header">
-        <input type="checkbox" class="article-checkbox" data-title="${article.title}">
+        <input type="checkbox" class="article-checkbox" data-title="${article.title.replace(/"/g, '&quot;')}">
         <h3><a href="${article.url}" target="_blank">${article.title}</a></h3>
-        <span class="toggle-icon">▼</span>
-      </div>
-      <div class="article-content">
-        ${article.summary ? 
-          `<div class="summary">${marked.parse(article.summary)}</div>` : 
-          '<div class="summary"><em>无总结 (请配置API Key和提示词后重新加载)</em></div>'
-        }
-        <div class="actions">
-          <button class="chat" data-article-title="${article.title.replace(/'/g, "&#39;")}">
-            开始对话
-          </button>
-          <button class="delete" data-article-title="${article.title.replace(/'/g, "&#39;")}">
-            删除文章
-          </button>
-        </div>
       </div>
     </div>
   `).join('');
 
+  // 更新下拉列表
+  const dropdown = document.getElementById('articleDropdown');
+  dropdown.innerHTML = '<option value="">-- 选择文章开始对话 --</option>' + 
+    sortedArticles.map(article => 
+      `<option value="${article.title.replace(/"/g, '&quot;')}">${article.title}</option>`
+    ).join('');
+  
+  // 添加下拉列表事件监听
+  dropdown.addEventListener('change', function() {
+    if (this.value) {
+      startChatWithArticle(this.value);
+    }
+  });
+
+  
 }
 
-// 添加切换文章折叠状态的函数
-function toggleArticle(articleItem) {
-    const articleContent = articleItem.querySelector('.article-content');
-    const toggleIcon = articleItem.querySelector('.toggle-icon');
 
-    if (articleContent) {
-      if (articleItem.classList.contains('collapsed')) {
-        articleItem.classList.remove('collapsed');
-        if (toggleIcon) {
-          toggleIcon.textContent = '▼'; // 展开时显示向下箭头
-        }
-      } else {
-        articleItem.classList.add('collapsed');
-        if (toggleIcon) {
-          toggleIcon.textContent = '▶'; // 折叠时显示向右箭头
-        }
-      }
-    }
-  }
-
-// 编辑文章标题
-async function editArticle(title) {
-  const newTitle = prompt('请输入新的标题', title);
-  if (newTitle && newTitle !== title) {
-    const result = await chrome.storage.local.get('articles');
-    const articles = result.articles || [];
-    const index = articles.findIndex(a => a.title === title);
-    
-    if (index !== -1) {
-      articles[index].title = newTitle;
-      await chrome.storage.local.set({ articles });
-      loadArticles();
-    }
-  }
-}
-
-// 删除文章
-async function deleteArticle(title) {
-  if (confirm(`确定要删除文章《${title}》吗？`)) {
-    const result = await chrome.storage.local.get('articles');
-    let articles = result.articles || [];
-    articles = articles.filter(a => a.title !== title);
-    await chrome.storage.local.set({ articles });
-    loadArticles(); // 重新加载列表
-    // 如果删除的是当前正在聊天的文章，则清空聊天区域
-    if (currentChatArticle && currentChatArticle.title === title) {
-      clearChatArea();
-    }
-  }
-}
 
 function clearChatArea() {
   document.getElementById('chatWindowTitle').textContent = '与 Gemini 对话';
@@ -213,12 +154,12 @@ async function sendChatMessage() {
         }]
       }],
       // 可以添加 generationConfig 等参数控制输出
-      // generationConfig: {
-      //   temperature: 0.7,
-      //   topK: 1,
-      //   topP: 1,
-      //   maxOutputTokens: 2048,
-      // }
+      generationConfig: {
+        "temperature": 0.3,
+        "topK": 30,
+        "topP": 0.7,
+        "maxOutputTokens": 500
+      }
     };
 
     const response = await fetch(API_ENDPOINT, {
@@ -251,17 +192,17 @@ function appendMessageToChatHistory(text, sender) { // sender可以是 'user', '
   messageElement.classList.add('chat-message', sender);
   
   // 创建发送者标签
-  const senderLabel = document.createElement('div');
-  senderLabel.classList.add('sender-label');
-  senderLabel.textContent = sender === 'user' ? '我' : 
+  // const senderLabel = document.createElement('div');
+  // senderLabel.classList.add('sender-label');
+  senderLabel = sender === 'user' ? '我' : 
                            sender === 'gemini' ? 'AI' : 
                            sender === 'system' ? '系统' : '错误';
-  messageElement.appendChild(senderLabel);
+  // messageElement.appendChild(senderLabel);
   
   // 创建消息内容容器
   const messageContent = document.createElement('div');
   messageContent.classList.add('message-content');
-  messageContent.innerHTML = marked.parse(text); // 使用 innerHTML 来显示解析后的 markdown
+  messageContent.innerHTML = "<strong>" + senderLabel + "</strong>：" + marked.parse(text); // 使用 innerHTML 来显示解析后的 markdown
   messageElement.appendChild(messageContent);
   
   chatHistoryElement.appendChild(messageElement);
@@ -278,8 +219,17 @@ async function exportToDrive() {
   try {
     // 创建并显示加载指示器
     const loadingElement = document.createElement('div');
-    loadingElement.className = 'loading-indicator';
-    loadingElement.innerHTML = '<div class="spinner"></div><p>正在导出文章到Google Drive...</p>';
+    loadingElement.id = 'exportLoading';
+    loadingElement.style.position = 'fixed';
+    loadingElement.style.top = '50%';
+    loadingElement.style.left = '50%';
+    loadingElement.style.transform = 'translate(-50%, -50%)';
+    loadingElement.style.padding = '20px';
+    loadingElement.style.background = 'white';
+    loadingElement.style.borderRadius = '5px';
+    loadingElement.style.boxShadow = '0 0 10px rgba(0,0,0,0.2)';
+    loadingElement.style.zIndex = '1000';
+    loadingElement.innerHTML = '<p>正在导出文章到Google Drive...</p><div class="loading-spinner"></div>';
     document.body.appendChild(loadingElement);
 
     const tokenObject = await chrome.identity.getAuthToken({ interactive: true });
@@ -387,7 +337,14 @@ async function summarizeTextWithGemini(apiKey, textToSummarize, userPrompt) {
       parts: [{
         text: `${userPrompt}\n\n${textToSummarize}`
       }]
-    }]
+    }],
+    // 可以添加 generationConfig 等参数控制输出
+    generationConfig: {
+      "temperature": 0.3,
+      "topK": 30,
+      "topP": 0.7,
+      "maxOutputTokens": 500
+    }
   };
 
   try {
@@ -514,44 +471,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // 使用事件委托处理文章列表中的所有交互
-  const articlesList = document.getElementById('articlesList');
-  if (articlesList) {
-    articlesList.addEventListener('click', (event) => {
-      const target = event.target;
-      
-      // 处理聊天按钮点击
-      if (target.classList.contains('chat')) {
-        event.stopPropagation();
-        startChatWithArticle(target.dataset.articleTitle);
-        return;
-      }
-      
-      // 处理删除按钮点击
-      if (target.classList.contains('delete')) {
-        event.stopPropagation();
-        deleteArticle(target.dataset.articleTitle);
-        return;
-      }
-      
-      // 处理文章折叠/展开
-      const articleHeader = target.closest('.article-header');
-      if (articleHeader) {
-        const articleItem = articleHeader.parentNode;
-        const toggleIcon = articleHeader.querySelector('.toggle-icon');
-        
-        if (articleItem.classList.contains('collapsed')) {
-          articleItem.classList.remove('collapsed');
-          if (toggleIcon) toggleIcon.textContent = '▼';
-        } else {
-          articleItem.classList.add('collapsed');
-          if (toggleIcon) toggleIcon.textContent = '▶';
-        }
-      }
-    });
-  }
-
-
   document.getElementById('summarizeSelected').addEventListener('click', summarizeSelectedArticles);
 
 
@@ -630,14 +549,22 @@ async function callBatchSummaryAPI(apiKey, summaryPrompt, selectedArticles) {
   const requestBody = {
     contents: [{
       parts: [{
-        text: `${summaryPrompt}\n\n${JSON.stringify(selectedArticles)}`
+        text: `请以Markdown格式返回以下内容的总结:\n\n${JSON.stringify(selectedArticles)}\n\n总结要求:${summaryPrompt}`
       }]
-    }]
+    }],
+    // 可以添加 generationConfig 等参数控制输出
+    generationConfig: {
+      "temperature": 0.3,
+      "topK": 30,
+      "topP": 0.7,
+      "maxOutputTokens": 50000
+    }
+  
   };
 
   const response = await fetch(API_ENDPOINT, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/plain' },
     body: JSON.stringify(requestBody),
   });
 
@@ -645,51 +572,41 @@ async function callBatchSummaryAPI(apiKey, summaryPrompt, selectedArticles) {
     throw new Error(`API请求失败: ${response.status}`);
   }
 
-  return await response.json();
+  const data = await response.json();
+  // 直接返回 API 响应的文本内容
+  return data.candidates?.[0]?.content?.parts?.[0]?.text || '';
 }
 
-// 修改processAPIResponse函数
-function processAPIResponse(data) {
-  if (!data.candidates?.[0]?.content?.parts?.[0]) {
-    throw new Error('API返回格式无效');
-  }
-
-  let responseText = data.candidates[0].content.parts[0].text;
-  
-  // 更健壮地处理可能的Markdown代码块
-  responseText = responseText.replace(/^```(json)?\n|```$/g, '').trim();
-  
-  // 尝试提取第一个JSON对象，即使前面有其他文本
-  const jsonMatch = responseText.match(/\{[\s\S]*?\}/);
-  if (!jsonMatch) {
-    throw new Error('API返回内容中未找到有效的JSON');
-  }
-
-  try {
-    return JSON.parse(jsonMatch[0]);
-  } catch (e) {
-    console.error('解析JSON失败:', e, '原始内容:', responseText);
-    throw new Error('API返回的JSON格式无效');
-  }
-}
 
 // 更新文章总结
-async function updateArticleSummaries(summaries, articles) {
-  let articlesUpdated = false;
-  summaries.forEach(summary => {
-    const articleIndex = articles.findIndex(a => a.title === summary.title);
-    if (articleIndex !== -1) {
-      articles[articleIndex].summary = summary.content;
-      articlesUpdated = true;
-    }
-  });
-
-  if (articlesUpdated) {
-    await chrome.storage.local.set({ articles });
-    loadArticles();
+async function updateArticleSummaries(summaries) {
+  // 先移除旧的总结结果
+  const oldSummary = document.querySelector('.summary-results');
+  if (oldSummary) {
+    oldSummary.remove();
   }
 
-  return articlesUpdated;
+  // 创建总结结果显示区域
+  const summaryResults = document.createElement('div');
+  summaryResults.className = 'summary-results';
+  summaryResults.innerHTML = '<h3>批量总结结果</h3>';
+
+  // 将 Markdown 转换为 HTML 并添加到结果区域
+  const summaryContent = document.createElement('div');
+  summaryContent.className = 'summary-content';
+  summaryContent.innerHTML = marked.parse(summaries);
+  summaryResults.appendChild(summaryContent);
+
+  // 将总结结果插入到操作按钮区域下方
+  const buttonArea = document.querySelector('.actions'); // 修改为匹配实际的类名
+  if (buttonArea) {
+    buttonArea.insertAdjacentElement('afterend', summaryResults);
+  } else {
+    document.body.appendChild(summaryResults);
+  }
+
+  // 将总结内容保存到本地存储
+  await chrome.storage.local.set({ latestSummary: summaries });
 }
 
 // 添加批量总结函数
@@ -705,34 +622,35 @@ async function summarizeSelectedArticles() {
   try {
     const settings = await chrome.storage.local.get(['geminiApiKey', 'summaryPrompt']);
     const apiKey = settings.geminiApiKey;
-    const summaryPrompt = `
-    您将收到一个JSON数组，每个元素包含 "title" 和 "textContent" 字段。请为每篇文章生成总结，并返回一个严格符合以下格式的JSON数组，除了总结内容外，不要包含任何额外的文本或解释。
+    const summaryPrompt = settings.summaryPrompt;
+    // const summaryPrompt = `
+    // 您将收到一个JSON数组，每个元素包含 "title" 和 "textContent" 字段。请为每篇文章生成总结，并返回一个严格符合以下格式的JSON数组，除了总结内容外，不要包含任何额外的文本或解释。
 
-    要求：
-    1.  输出必须是严格有效的JSON格式，结构与输入完全一致。
-    2.  每篇文章的总结必须包含在 "content" 字段中。
-    3.  总结语言为简体中文，使用口语化表达。
-    4.  保留关键细节，总结长度控制在原文的 30% 以内。
-    5.  对于软文，直接在 "content" 字段中标记为 "软文"。
+    // 要求：
+    // 1.  输出必须是严格有效的JSON格式，结构与输入完全一致。
+    // 2.  每篇文章的总结必须包含在 "content" 字段中。
+    // 3.  总结语言为简体中文，使用口语化表达。
+    // 4.  保留关键细节，总结长度控制在原文的 30% 以内。
+    // 5.  对于软文，直接在 "content" 字段中标记为 "软文"。
 
-    示例输入格式：
-    [{"title": "文章标题", "textContent": "文章内容..."}]
+    // 示例输入格式：
+    // [{"title": "文章标题", "textContent": "文章内容..."}]
 
-    示例输出格式：
-    [
-      {"title": "文章标题1", "content": "总结内容1"},
-      {"title": "文章标题2", "content": "总结内容2"},
-      ...
-    ]
+    // 示例输出格式：
+    // [
+    //   {"title": "文章标题1", "content": "总结内容1"},
+    //   {"title": "文章标题2", "content": "总结内容2"},
+    //   ...
+    // ]
 
-    总结内容要求：
-    -   快速提炼核心观点。
-    -   保留关键细节。
-    -   使用口语化表达。
-    -   根据文章类型调整总结侧重点。
-    -   对于疑问句标题，直接从文章内容中回答问题。
-    -   明确标注软文。
-    `;
+    // 总结内容要求：
+    // -   快速提炼核心观点。
+    // -   保留关键细节。
+    // -   使用口语化表达。
+    // -   根据文章类型调整总结侧重点。
+    // -   对于疑问句标题，直接从文章内容中回答问题。
+    // -   明确标注软文。
+    // `;
 
     if (!apiKey || !summaryPrompt) {
       alert('请先在设置中填写 Gemini API Key 和总结提示词！');
@@ -744,10 +662,9 @@ async function summarizeSelectedArticles() {
     
     // 准备要总结的文章数据
     const selectedArticles = prepareSelectedArticles(checkboxes, articles);
-    const data = await callBatchSummaryAPI(settings.geminiApiKey, settings.summaryPrompt, selectedArticles);
-    const summaries = processAPIResponse(data);
+    const summaries = await callBatchSummaryAPI(settings.geminiApiKey, settings.summaryPrompt, selectedArticles);
     
-    await updateArticleSummaries(summaries, articles);
+    await updateArticleSummaries(summaries);
     alert('批量总结完成！');
   } catch (error) {
     console.error('批量总结失败:', error);

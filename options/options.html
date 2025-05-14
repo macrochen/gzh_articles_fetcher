@@ -10,7 +10,6 @@
   <div class="main-container">
     <!-- 左侧区域 -->
     <div class="sidebar">
-      <h1>文章列表</h1>
       <div class="settings-section collapsed">
         <div class="settings-header">
           <h2>Gemini API 设置</h2>
@@ -28,11 +27,13 @@
           <button id="saveSettings">保存设置</button>
         </div>
       </div>
+      
+      <h1>文章列表</h1>
       <div class="articles-list" id="articlesList"></div>
       <div class="actions">
         <label><input type="checkbox" id="selectAll">全选</label>
         <button id="deleteSelected">删除选中</button>
-        <!-- <button id="summarizeSelected">批量总结</button> -->
+        <button id="summarizeSelected">批量总结</button>
         <button id="exportToDrive">全部导出到 Google Drive</button>
       </div>
     </div>
@@ -40,6 +41,9 @@
     <!-- 右侧聊天区域 -->
     <div class="chat-container">
       <div class="chat-header" id="chatWindowTitle">与 Gemini 对话</div>
+      <select id="articleDropdown" class="article-dropdown">
+        <option value="">-- 选择文章开始对话 --</option>
+      </select>
       <div class="chat-history" id="chatHistory">
         <!-- 聊天记录将显示在这里 -->
       </div>

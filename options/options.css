@@ -102,25 +102,6 @@ body {
   flex-grow: 1;
 }
 
-.article-item .toggle-icon {
-  font-size: 12px;
-  transition: transform 0.3s ease;
-  margin-left: 10px;
-}
-
-.article-item .article-content {
-  max-height: 1000px;
-  overflow: hidden;
-  transition: max-height 0.3s ease-out;
-}
-
-.article-item.collapsed .article-content {
-  max-height: 0;
-}
-
-.article-item.collapsed .toggle-icon {
-  transform: rotate(-90deg);
-}
 
 button {
   padding: 8px 16px;
@@ -207,4 +188,33 @@ button:hover {
 
 .chat-input button:hover {
   background-color: #388e3c;
+}
+
+.article-dropdown {
+  width: 100%;
+  padding: 8px;
+  margin: 10px 0;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+.summary-results {
+  margin-top: 20px;
+  border-top: 1px solid #ddd;
+  padding-top: 20px;
+}
+
+.summary-item {
+  margin-bottom: 20px;
+  padding: 15px;
+  background: #f9f9f9;
+  border-radius: 4px;
+}
+
+.summary-item h3 {
+  margin-top: 0;
+}
+
+.summary-content {
+  line-height: 1.6;
 }
