@@ -24,7 +24,12 @@
             <label for="summaryPrompt">总结提示词:</label>
             <textarea id="summaryPrompt" rows="4" placeholder="例如：请总结以下内容" style="width: 100%;"></textarea>
           </div>
-          <button id="saveSettings">保存设置</button>
+          
+          <div style="display: flex; gap: 10px; margin-top: 10px;">
+            <button id="editPresetPrompts">编辑预设提示词</button>
+            <button id="resetAllSettings">恢复默认设置</button>
+            <button id="saveSettings">保存设置</button>
+          </div>
         </div>
       </div>
       
@@ -48,20 +53,11 @@
         <!-- 聊天记录将显示在这里 -->
       </div>
       <div class="chat-input">
-        <select id="presetPrompts">
-          <option value="">-- 选择预设提示词 --</option>
-          <option value="总结内容要求：
-          - 快速提炼核心观点
-          - 保留关键细节
-          - 口语化表达
-          - 根据文章类型调整侧重点
-          - 对疑问句标题直接回答">总结</option>
-          <option value="对这篇文章进行批判性思考，指出其中的优缺点和潜在偏见">批判性思考</option>
-          <option value="列出这篇文章中的所有数据和统计信息">列出数据</option>
-          <option value="总结这篇文章中提到的案例或故事">列出案例</option>
-          <option value="提取这篇文章中的金句或精彩观点">列出金句</option>
-          <option value="找出这篇文章中新颖或反直觉的观点">新颖见解</option>
-        </select>
+        <div class="preset-prompts-container">
+          <select id="presetPrompts">
+            <option value="">-- 选择预设提示词 --</option>
+          </select>
+        </div>
         <textarea id="chatInput" placeholder="输入您的问题..."></textarea>
         <button id="sendChatMessage">发送</button>
       </div>

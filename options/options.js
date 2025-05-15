@@ -17,14 +17,49 @@ async function saveSettings() {
   alert('设置已保存！');
 }
 
+// 在文件开头添加默认提示词常量
+const DEFAULT_SUMMARY_PROMPT = `# 任务目标
+你需要扮演一个信息处理和总结助手。请根据我提供的JSON格式的文档，对每篇文章进行处理。
+
+# 输入格式
+我的文档结构是 JSON 格式，每篇文章是一个 JSON 对象，包含 \`title\` (文章标题)、\`url\` (文章链接) 和 \`content\` (文章主要内容) 这三个字段。你需要按顺序处理JSON中的每篇文章。
+
+# 主要任务：文章总结与处理
+
+请用简体中文大白话总结给定的内容。对于需要总结的文章（非软文、非内容无法总结的情况），你的总结应包含以下结构化信息，并确保整体风格口语化、忠于原文：
+
+1.  **主要内容**：简明扼要地概括文章主要讲述的是什么事情、哪个领域或哪个主题。
+2.  **核心观点**：清晰提炼文章最核心的论点、看法或结论，让人一眼看懂文章主要想表达什么。
+3.  **关键细节**：列出支撑核心观点的关键信息点，如重要数据、人物观点、事件要素、具体案例的核心内容等。如果有多条，请分点列出。
+4.  **深度解读**：基于原文信息，尝试点出观点背后的逻辑、潜在的假设、可能的引申、与其他信息的联系或对事物更深层次的理解。避免主观臆断和过度引申。
+
+**其他要求：**
+
+5.  **总结风格**：整体总结要像跟朋友聊天一样，自然口语化，避免生硬的书面语。
+6.  **忠于原文**：所有部分的总结都必须严格忠于原文内容，不允许虚构或歪曲。
+7.  **类型适配**：针对不同类型的文章（比如财经、健康、生活），在"核心观点"、"关键细节"和"深度解读"时，侧重点可以稍微调整（财经侧重数据趋势，健康侧重科学建议等），但都得保证通俗易懂和上述结构。
+8.  **问句标题处理**：如果文章标题是疑问句（例如"未来十年，中国零售渠道会有哪些变化？"），请在"核心观点"部分直接、清晰地回答这个问题，并结合"主要内容"、"关键细节"和"深度解读"进行支撑。
+9.  **软文识别与处理**：如果识别出文章主要目的是推广产品、课程或服务（即软文），请使用以下固定格式进行标注：\`[软文识别] 此内容可能为推广信息，核心价值较低。\` 无需进行结构化总结。
+10. **内容无法总结处理**：如果文章 \`content\` 字段为空、内容完全是乱码、或因内容过短/信息量过低而无法进行有意义的总结，请进行标注，例如：\`[内容无法总结] 原文内容不足或无法有效解析。\` 无需进行结构化总结。
+11. **编号**：为每篇文章分配一个从1开始的顺序编号，方便后续提问。`;
+
 async function loadSettings() {
   const result = await chrome.storage.local.get(['geminiApiKey', 'summaryPrompt']);
   if (result.geminiApiKey) {
     document.getElementById('geminiApiKey').value = result.geminiApiKey;
   }
-  if (result.summaryPrompt) {
-    document.getElementById('summaryPrompt').value = result.summaryPrompt;
-  }
+  // 如果没有保存的提示词，使用默认值
+  document.getElementById('summaryPrompt').value = result.summaryPrompt || DEFAULT_SUMMARY_PROMPT;
+}
+
+// 添加恢复默认设置的函数
+async function resetAllSettings() {
+  document.getElementById('summaryPrompt').value = DEFAULT_SUMMARY_PROMPT;
+
+  await chrome.storage.local.set({ presetPrompts: DEFAULT_PRESET_PROMPTS });
+  loadPresetPrompts();
+  
+  alert('设置已恢复为默认值！');
 }
 
 // 加载文章列表
@@ -103,9 +138,6 @@ async function startChatWithArticle(title) {
   const chatHistoryElement = document.getElementById('chatHistory');
   chatHistoryElement.innerHTML = ''; // 清空之前的聊天记录
 
-  // 添加一条初始消息，包含文章内容作为上下文
-  appendMessageToChatHistory(`正在与关于《${article.title}》的内容进行对话。`, 'system');
-  
   document.getElementById('chatInput').focus();
 }
 
@@ -158,7 +190,7 @@ async function sendChatMessage() {
         "temperature": 0.3,
         "topK": 30,
         "topP": 0.7,
-        "maxOutputTokens": 500
+        "maxOutputTokens": 1000
       }
     };
 
@@ -316,7 +348,7 @@ async function exportToDrive() {
     alert('导出失败：' + (error.message || error));
   } finally {
     // 无论成功或失败，都移除加载指示器
-    const loadingElement = document.querySelector('.loading-indicator');
+    const loadingElement = document.getElementById('exportLoading');
     if (loadingElement) loadingElement.remove();
   }
 }
@@ -343,7 +375,7 @@ async function summarizeTextWithGemini(apiKey, textToSummarize, userPrompt) {
       "temperature": 0.3,
       "topK": 30,
       "topP": 0.7,
-      "maxOutputTokens": 500
+      "maxOutputTokens": 1000
     }
   };
 
@@ -483,7 +515,6 @@ document.addEventListener('DOMContentLoaded', () => {
   // 绑定删除选中按钮
   document.getElementById('deleteSelected').addEventListener('click', deleteSelectedArticles);
 
-  // 在DOMContentLoaded事件监听器中添加
   const presetSelect = document.getElementById('presetPrompts');
   presetSelect.addEventListener('change', function() {
     if (this.value) {
@@ -492,6 +523,32 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
+
+  // 添加恢复默认设置按钮的事件监听
+  document.getElementById('resetAllSettings').addEventListener('click', resetAllSettings);
+
+
+  // 加载预设提示词
+  loadPresetPrompts();
+
+  // 添加编辑预设提示词按钮事件监听
+  document.getElementById('editPresetPrompts').addEventListener('click', editPresetPrompts);
+  
+  // 添加预设提示词选择事件
+  document.querySelectorAll('#presetPrompts').forEach(selector => {
+    selector.addEventListener('change', function() {
+      if (this.value) {
+        // 根据所在区域决定填充到哪个输入框
+        if (this.closest('.chat-input')) {
+          document.getElementById('chatInput').value = this.value;
+        } else {
+          document.getElementById('summaryPrompt').value = this.value;
+        }
+        this.value = ''; // 重置选择
+      }
+    });
+  });
+  
 });
 
 async function deleteSelectedArticles() {
@@ -557,7 +614,7 @@ async function callBatchSummaryAPI(apiKey, summaryPrompt, selectedArticles) {
       "temperature": 0.3,
       "topK": 30,
       "topP": 0.7,
-      "maxOutputTokens": 50000
+      "maxOutputTokens": 100000
     }
   
   };
@@ -673,3 +730,216 @@ async function summarizeSelectedArticles() {
     document.body.removeChild(loadingElement);
   }
 }
+
+
+// 在文件开头添加预设提示词常量
+const DEFAULT_PRESET_PROMPTS = [
+  {
+    name: "全文总结",
+    prompt: `总结内容要求：
+- 快速提炼核心观点
+- 保留关键细节
+- 口语化表达
+- 根据文章类型调整侧重点
+- 对疑问句标题直接回答`
+  },
+  {
+    name: "批判性思考",
+    prompt: "对这篇文章进行批判性思考，指出其中的优缺点和潜在偏见"
+  },
+  {
+    name: "列出数据",
+    prompt: "请从文章中提取所有数据点和统计信息，并按重要性排序。"
+  },
+  {
+    name: "列出金句",
+    prompt: "提取这篇文章中的金句或精彩观点"
+  },
+  {
+    name: "新颖见解",
+    prompt: "找出这篇文章中新颖或反直觉的观点"
+  }
+];
+
+// 加载预设提示词到下拉菜单
+async function loadPresetPrompts() {
+  const result = await chrome.storage.local.get('presetPrompts');
+  let presetPrompts = result.presetPrompts || DEFAULT_PRESET_PROMPTS;
+  
+  // 更新两个预设提示词下拉菜单
+  const presetSelectors = document.querySelectorAll('#presetPrompts');
+  presetSelectors.forEach(selector => {
+    selector.innerHTML = '<option value="">-- 选择预设提示词 --</option>';
+        
+    // 使用数组的forEach来保持顺序
+    presetPrompts.forEach(preset => {
+      const option = document.createElement('option');
+      option.value = preset.prompt;
+      option.textContent = preset.name;
+      selector.appendChild(option);
+    });
+  });
+}
+
+// 编辑预设提示词功能
+function editPresetPrompts() {
+  // 获取当前预设提示词
+  chrome.storage.local.get('presetPrompts', async (result) => {
+    let presetPrompts = result.presetPrompts || DEFAULT_PRESET_PROMPTS;
+    
+    // 创建编辑对话框
+    const dialog = document.createElement('div');
+    dialog.className = 'preset-dialog';
+    dialog.innerHTML = `
+      <div class="preset-dialog-content">
+        <h2>编辑预设提示词</h2>
+        <div id="presetEntries"></div>
+        <div class="preset-actions">
+          <button id="addPreset">添加预设</button>
+          <div class="preset-dialog-buttons">
+            <button id="savePresets">保存</button>
+            <button id="cancelEdit">取消</button>
+          </div>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(dialog);
+    
+    // 添加样式
+    const style = document.createElement('style');
+    style.textContent = `
+      .preset-dialog {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0,0,0,0.5);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 1000;
+      }
+      .preset-dialog-content {
+        background: white;
+        padding: 20px;
+        border-radius: 8px;
+        width: 80%;
+        max-width: 600px;
+        max-height: 80vh;
+        overflow-y: auto;
+      }
+      .preset-entry {
+        margin-bottom: 15px;
+        border-bottom: 1px solid #eee;
+        padding-bottom: 15px;
+      }
+      .preset-entry input, .preset-entry textarea {
+        width: 100%;
+        margin-top: 5px;
+        padding: 8px;
+        box-sizing: border-box;
+      }
+      .preset-entry textarea {
+        height: 100px;
+      }
+      .preset-actions {
+        margin-top: 20px;
+        display: flex;
+        justify-content: space-between;
+      }
+      .preset-dialog-buttons {
+        display: flex;
+        gap: 10px;
+      }
+      .preset-entry-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      .delete-preset {
+        color: red;
+        cursor: pointer;
+      }
+    `;
+    document.head.appendChild(style);
+    
+    // 渲染预设条目
+    const presetEntriesContainer = document.getElementById('presetEntries');
+    function renderPresetEntries() {
+      presetEntriesContainer.innerHTML = '';
+      
+      // 使用数组的forEach来保持顺序
+      presetPrompts.forEach(preset => {
+        const entryDiv = document.createElement('div');
+        entryDiv.className = 'preset-entry';
+        entryDiv.innerHTML = `
+          <div class="preset-entry-header">
+            <label>预设名称:</label>
+            <span class="delete-preset" data-name="${preset.name}">删除</span>
+          </div>
+          <input type="text" class="preset-name" value="${preset.name}">
+          <label>提示词内容:</label>
+          <textarea class="preset-content">${preset.prompt}</textarea>
+        `;
+        presetEntriesContainer.appendChild(entryDiv);
+      });
+      
+      // 添加删除事件监听
+      document.querySelectorAll('.delete-preset').forEach(btn => {
+        btn.addEventListener('click', function() {
+          const nameToDelete = btn.getAttribute('data-name');
+          presetPrompts = presetPrompts.filter(preset => preset.name !== nameToDelete);
+          renderPresetEntries();
+        });
+      });
+    }
+    
+    renderPresetEntries();
+    
+    // 添加新预设
+    document.getElementById('addPreset').addEventListener('click', () => {
+      const newName = `预设 ${presetPrompts.length + 1}`;
+      // 添加到数组末尾
+      presetPrompts.push({
+        name: newName,
+        prompt: "请输入提示词内容"
+      });
+      renderPresetEntries();
+    });
+    
+    // 保存预设
+    document.getElementById('savePresets').addEventListener('click', () => {
+      const entries = document.querySelectorAll('.preset-entry');
+      const newPresets = [];
+      
+      // 保持DOM中的顺序
+      entries.forEach(entry => {
+        const name = entry.querySelector('.preset-name').value.trim();
+        const content = entry.querySelector('.preset-content').value.trim();
+        
+        if (name && content) {
+          newPresets.push({
+            name: name,
+            prompt: content
+          });
+        }
+      });
+      
+      chrome.storage.local.set({ presetPrompts: newPresets }, () => {
+        loadPresetPrompts(); // 重新加载预设
+        dialog.remove();
+        style.remove();
+        alert('预设提示词已保存！');
+      });
+    });
+    
+    // 取消编辑
+    document.getElementById('cancelEdit').addEventListener('click', () => {
+      dialog.remove();
+      style.remove();
+    });
+  });
+}
+
+
