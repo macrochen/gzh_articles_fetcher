@@ -40,7 +40,10 @@ function extractArticleInfo() {
             document.body.appendChild(notification);
             setTimeout(() => notification.remove(), 3000);
           })
-          .catch(error => console.error('复制失败:', error));
+          .catch(error => {
+            console.error('复制失败 - 文章标题:', article.title);
+            console.error('错误详情:', error.name, error.message);
+          });
         
         // 发送消息到 background script
         chrome.runtime.sendMessage({
@@ -64,3 +67,16 @@ function extractArticleInfo() {
 
 // 当页面加载完成后执行提取
 window.addEventListener('load', extractArticleInfo);
+
+// 添加消息监听器
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  if (request.action === 'fetchCurrentPage') {
+    try {
+      extractArticleInfo();
+      sendResponse({ success: true });
+    } catch (error) {
+      sendResponse({ success: false, error: error.message });
+    }
+    return true; // 保持消息通道开放以支持异步响应
+  }
+});

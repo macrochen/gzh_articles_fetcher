@@ -40,9 +40,13 @@
         <button id="deleteSelected">删除选中</button>
         <button id="summarizeSelected">批量总结</button>
         <button id="exportToDrive">全部导出到 Google Drive</button>
+        <button id="copyToClipboard">导出到剪贴板</button>
       </div>
     </div>
-
+    
+    <!-- 分割线 -->
+    <!-- <div class="resizer" id="dragMe"></div> -->
+    
     <!-- 右侧聊天区域 -->
     <div class="chat-container">
       <div class="chat-header" id="chatWindowTitle">与 Gemini 对话</div>
@@ -54,7 +58,7 @@
       </div>
       <div class="chat-input">
         <div class="preset-prompts-container">
-          <select id="presetPrompts">
+          <select id="presetPrompts" multiple>
             <option value="">-- 选择预设提示词 --</option>
           </select>
         </div>

@@ -15,16 +15,41 @@ body {
   display: flex;
   width: 100%;
   height: 100%;
+  position: relative;
+}
+
+.resizer {
+  width: 6px;
+  cursor: col-resize;
+  background-color: #eee;
+  position: absolute;
+  left: 55%; /* 改回使用 left 定位 */
+  top: 0;
+  bottom: 0;
+  transition: background-color 0.2s;
+  z-index: 10; /* 添加 z-index 确保分割线在最上层 */
+}
+
+.resizer:hover,
+.resizer.dragging {
+  background-color: #ccc;
 }
 
 .sidebar {
   width: 55%;
   padding: 20px;
-  border-right: 1px solid #ccc;
+  border-right: none; /* 移除原有的边框 */
   overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: 20px;
+}
+
+
+.chat-container {
+  flex: 1;
+  padding: 20px;
+  overflow-y: auto;
 }
 
 .sidebar h1 {

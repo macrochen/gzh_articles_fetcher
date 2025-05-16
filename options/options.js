@@ -37,11 +37,43 @@ const DEFAULT_SUMMARY_PROMPT = `# 任务目标
 
 5.  **总结风格**：整体总结要像跟朋友聊天一样，自然口语化，避免生硬的书面语。
 6.  **忠于原文**：所有部分的总结都必须严格忠于原文内容，不允许虚构或歪曲。
-7.  **类型适配**：针对不同类型的文章（比如财经、健康、生活），在"核心观点"、"关键细节"和"深度解读"时，侧重点可以稍微调整（财经侧重数据趋势，健康侧重科学建议等），但都得保证通俗易懂和上述结构。
-8.  **问句标题处理**：如果文章标题是疑问句（例如"未来十年，中国零售渠道会有哪些变化？"），请在"核心观点"部分直接、清晰地回答这个问题，并结合"主要内容"、"关键细节"和"深度解读"进行支撑。
+7.  **类型适配**：针对不同类型的文章（比如财经、健康、生活），在“核心观点”、“关键细节”和“深度解读”时，侧重点可以稍微调整（财经侧重数据趋势，健康侧重科学建议等），但都得保证通俗易懂和上述结构。
+8.  **问句标题处理**：如果文章标题是疑问句（例如“未来十年，中国零售渠道会有哪些变化？”），请在“核心观点”部分直接、清晰地回答这个问题，并结合“主要内容”、“关键细节”和“深度解读”进行支撑。
 9.  **软文识别与处理**：如果识别出文章主要目的是推广产品、课程或服务（即软文），请使用以下固定格式进行标注：\`[软文识别] 此内容可能为推广信息，核心价值较低。\` 无需进行结构化总结。
-10. **内容无法总结处理**：如果文章 \`content\` 字段为空、内容完全是乱码、或因内容过短/信息量过低而无法进行有意义的总结，请进行标注，例如：\`[内容无法总结] 原文内容不足或无法有效解析。\` 无需进行结构化总结。
-11. **编号**：为每篇文章分配一个从1开始的顺序编号，方便后续提问。`;
+10. **内容无法总结处理**：如果文章 \`\` 字段为空、内容完全是乱码、或因内容过短/信息量过低而无法进行有意义的总结，请进行标注，例如：\`[内容无法总结] 原文内容不足或无法有效解析。\` 无需进行结构化总结。
+11. **编号**：为每篇文章分配一个从1开始的顺序编号，方便后续提问。
+
+# 输出格式示例
+
+对于普通文章：
+
+[1] 《文章标题示例》
+
+**主要内容**：[这里概括文章主要讲述的对象和范围]
+
+**核心观点**：[这里提炼文章最核心的论点或看法；若是问句标题，则在此处回答]
+
+**关键细节**：
+- [关键细节1，例如：具体数据、案例要素]
+- [关键细节2，例如：重要人物的观点]
+- （更多细节，视文章内容而定）
+
+**深度解读**：[这里提供基于原文的深层分析、联系或引申]
+
+
+对于软文：
+
+[2] 《另一篇文章标题》
+[软文识别] 此内容可能为推广信息，核心价值较低。
+
+
+对于内容无法总结的文章：
+
+[3] 《内容无法总结的文章标题》
+[内容无法总结] 原文内容不足或无法有效解析。
+
+
+`;
 
 async function loadSettings() {
   const result = await chrome.storage.local.get(['geminiApiKey', 'summaryPrompt']);
@@ -81,10 +113,8 @@ async function loadArticles() {
     updateArticleSummaries(local_result.latestSummary);
   }
 
-  // 倒序排列文章
-  const sortedArticles = [...articles].reverse();
 
-  listElement.innerHTML = sortedArticles.map(article => `
+  listElement.innerHTML = articles.map(article => `
     <div class="article-item collapsed">
       <div class="article-header">
         <input type="checkbox" class="article-checkbox" data-title="${article.title.replace(/"/g, '&quot;')}">
@@ -96,7 +126,7 @@ async function loadArticles() {
   // 更新下拉列表
   const dropdown = document.getElementById('articleDropdown');
   dropdown.innerHTML = '<option value="">-- 选择文章开始对话 --</option>' + 
-    sortedArticles.map(article => 
+  articles.map(article => 
       `<option value="${article.title.replace(/"/g, '&quot;')}">${article.title}</option>`
     ).join('');
   
@@ -190,7 +220,7 @@ async function sendChatMessage() {
         "temperature": 0.3,
         "topK": 30,
         "topP": 0.7,
-        "maxOutputTokens": 1000
+        "maxOutputTokens": 5000
       }
     };
 
@@ -375,7 +405,7 @@ async function summarizeTextWithGemini(apiKey, textToSummarize, userPrompt) {
       "temperature": 0.3,
       "topK": 30,
       "topP": 0.7,
-      "maxOutputTokens": 1000
+      "maxOutputTokens": 5000
     }
   };
 
@@ -485,7 +515,40 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('saveSettings').addEventListener('click', saveSettings);
   document.getElementById('exportToDrive').addEventListener('click', exportToDrive);
   document.getElementById('sendChatMessage').addEventListener('click', sendChatMessage);
+  document.getElementById('copyToClipboard').addEventListener('click', async function() {
+    const checkboxes = document.querySelectorAll('.article-checkbox:checked');
+    if (checkboxes.length === 0) {
+      alert('请至少选择一篇文章');
+      return;
+    }
+
+    try {
+      const result = await chrome.storage.local.get('articles');
+      const articles = result.articles || [];
+      const selectedArticles = articles.filter(article => 
+        Array.from(checkboxes).some(cb => cb.dataset.title === article.title)
+      );
+
+      const articlesJson = {
+        timestamp: new Date().toISOString(),
+        articles: selectedArticles.map(article => ({
+          title: article.title,
+          url: article.url,
+          content: article.textContent,
+        }))
+      };
+
+      await navigator.clipboard.writeText(JSON.stringify(articlesJson, null, 2));
+      alert('已成功将选中的文章以JSON格式复制到剪贴板');
+    } catch (error) {
+      console.error('复制到剪贴板失败:', error);
+      alert('复制到剪贴板失败，请重试');
+    }
+  });
   
+  // 初始化分割线拖动功能
+  // initResizer();
+
   // 允许按 Enter 键发送消息
   document.getElementById('chatInput').addEventListener('keypress', function (e) {
     if (e.key === 'Enter' && !e.shiftKey) { // Shift+Enter 用于换行
@@ -516,10 +579,14 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('deleteSelected').addEventListener('click', deleteSelectedArticles);
 
   const presetSelect = document.getElementById('presetPrompts');
+  
   presetSelect.addEventListener('change', function() {
-    if (this.value) {
-      document.getElementById('chatInput').value = this.value;
-      this.selectedIndex = 0; // 重置选择
+    const selectedOptions = Array.from(this.selectedOptions)
+      .map(option => option.value)
+      .filter(value => value !== '');
+      
+    if (selectedOptions.length > 0) {
+      document.getElementById('chatInput').value = selectedOptions.join('\n');
     }
   });
 
@@ -648,10 +715,19 @@ async function updateArticleSummaries(summaries) {
   summaryResults.className = 'summary-results';
   summaryResults.innerHTML = '<h3>批量总结结果</h3>';
 
+  // 预处理：提取真正的Markdown内容（处理有代码块和无代码块两种情况）
+  let markdownContent = summaries;
+  
+  // 尝试匹配代码块格式
+  const codeBlockMatch = summaries.match(/```markdown\n([\s\S]*?)\n```/);
+  if (codeBlockMatch && codeBlockMatch[1]) {
+    markdownContent = codeBlockMatch[1];
+  }
+
   // 将 Markdown 转换为 HTML 并添加到结果区域
   const summaryContent = document.createElement('div');
   summaryContent.className = 'summary-content';
-  summaryContent.innerHTML = marked.parse(summaries);
+  summaryContent.innerHTML = marked.parse(markdownContent);
   summaryResults.appendChild(summaryContent);
 
   // 将总结结果插入到操作按钮区域下方
@@ -746,6 +822,10 @@ const DEFAULT_PRESET_PROMPTS = [
   {
     name: "批判性思考",
     prompt: "对这篇文章进行批判性思考，指出其中的优缺点和潜在偏见"
+  },
+  {
+    name: "列出案例",
+    prompt: "总结这篇文章中提到的案例或故事"
   },
   {
     name: "列出数据",
@@ -941,5 +1021,42 @@ function editPresetPrompts() {
     });
   });
 }
+
+// 添加拖动分割线功能
+function initResizer() {
+  const resizer = document.getElementById('dragMe');
+  const sidebar = document.querySelector('.sidebar');
+  let isResizing = false;
+
+  resizer.addEventListener('mousedown', (e) => {
+    isResizing = true;
+    resizer.classList.add('dragging');
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', stopResizing);
+  });
+
+  function handleMouseMove(e) {
+    if (!isResizing) return;
+    
+    // 计算宽度百分比
+    const containerWidth = document.querySelector('.main-container').offsetWidth;
+    let newWidth = (e.clientX / containerWidth) * 100;
+    
+    // 限制最小和最大宽度
+    newWidth = Math.min(Math.max(newWidth, 20), 80);
+    
+    // 更新侧边栏和分割线位置
+    sidebar.style.width = `${newWidth}%`;
+    resizer.style.left = `${newWidth}%`;
+  }
+
+  function stopResizing() {
+    isResizing = false;
+    resizer.classList.remove('dragging');
+    document.removeEventListener('mousemove', handleMouseMove);
+    document.removeEventListener('mouseup', stopResizing);
+  }
+}
+
 
 
