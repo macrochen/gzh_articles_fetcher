@@ -2,6 +2,7 @@
 let currentChatArticle = null;
 let chatHistory = [];
 
+
 // 函数定义区域
 // (确保 saveSettings 和 loadSettings 在这里定义)
 async function saveSettings() {
@@ -82,13 +83,17 @@ async function loadSettings() {
   }
   // 如果没有保存的提示词，使用默认值
   document.getElementById('summaryPrompt').value = result.summaryPrompt || DEFAULT_SUMMARY_PROMPT;
+  
 }
 
 // 添加恢复默认设置的函数
 async function resetAllSettings() {
   document.getElementById('summaryPrompt').value = DEFAULT_SUMMARY_PROMPT;
-
-  await chrome.storage.local.set({ presetPrompts: DEFAULT_PRESET_PROMPTS });
+  
+  await chrome.storage.local.set({ 
+    presetPrompts: DEFAULT_PRESET_PROMPTS,
+  });
+  
   loadPresetPrompts();
   
   alert('设置已恢复为默认值！');
@@ -164,7 +169,7 @@ async function startChatWithArticle(title) {
   currentChatArticle = article;
   chatHistory = []; // 开始新的对话时清空历史
 
-  document.getElementById('chatWindowTitle').textContent = `与《${article.title}》对话`;
+  // document.getElementById('chatWindowTitle').textContent = `与《${article.title}》对话`;
   const chatHistoryElement = document.getElementById('chatHistory');
   chatHistoryElement.innerHTML = ''; // 清空之前的聊天记录
 
@@ -821,7 +826,16 @@ const DEFAULT_PRESET_PROMPTS = [
   },
   {
     name: "批判性思考",
-    prompt: "对这篇文章进行批判性思考，指出其中的优缺点和潜在偏见"
+    prompt: `用最大白话、最容易懂的简体中文进行批判性思考。请尝试从下面几个方面帮我分析分析（挑你觉得最合适的几个方面说就行，不用每个都说）：
+
+1.  **它到底在说啥？** (核心观点/主要信息是什么？)
+2.  **这么说有啥依据吗？** (支撑它的理由或证据可靠吗？充分吗？)
+3.  **有没有啥没明说但暗含的意思？** (背后可能藏着什么假设或前提？)
+4.  **有没有别的看法或角度？** (换个角度看会怎么样？有没有不同的声音？)
+5.  **可能会有啥好的或不好的影响？** (长远来看会怎么样？)
+6.  **我们应该怎么更全面地看待这事儿/这个说法？**
+
+请把你的分析一点一点说清楚，用简单的词，别整那些难懂的。 `
   },
   {
     name: "列出案例",
@@ -884,6 +898,21 @@ function editPresetPrompts() {
       </div>
     `;
     document.body.appendChild(dialog);
+
+    // 添加ESC键监听
+    const handleEsc = (event) => {
+      if (event.key === 'Escape') {
+        closeDialog();
+      }
+    };
+    document.addEventListener('keydown', handleEsc);
+    
+    // 关闭对话框函数
+    function closeDialog() {
+      document.removeEventListener('keydown', handleEsc);
+      dialog.remove();
+      style.remove();
+    }
     
     // 添加样式
     const style = document.createElement('style');
@@ -1008,21 +1037,17 @@ function editPresetPrompts() {
       
       chrome.storage.local.set({ presetPrompts: newPresets }, () => {
         loadPresetPrompts(); // 重新加载预设
-        dialog.remove();
-        style.remove();
+        closeDialog();
         alert('预设提示词已保存！');
       });
     });
     
     // 取消编辑
-    document.getElementById('cancelEdit').addEventListener('click', () => {
-      dialog.remove();
-      style.remove();
-    });
+    document.getElementById('cancelEdit').addEventListener('click', closeDialog);
   });
 }
 
-// 添加拖动分割线功能
+
 function initResizer() {
   const resizer = document.getElementById('dragMe');
   const sidebar = document.querySelector('.sidebar');

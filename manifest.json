@@ -45,5 +45,14 @@
     "16": "assets/icons/icon.png",
     "48": "assets/icons/icon.png",
     "128": "assets/icons/icon.png"
+  },
+  "commands": {
+    "fetch-current-page": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+G",
+        "mac": "Command+Shift+G"
+      },
+      "description": "抓取当前页面内容"
+    }
   }
 }

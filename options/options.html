@@ -12,23 +12,26 @@
     <div class="sidebar">
       <div class="settings-section collapsed">
         <div class="settings-header">
-          <h2>Gemini API 设置</h2>
+          <h2>设置</h2>
           <span class="toggle-icon">▼</span>
         </div>
-        <div class="settings-content">
-          <div>
-            <label for="geminiApiKey">API Key:</label>
-            <input type="password" id="geminiApiKey" placeholder="请输入您的 Google Gemini API Key">
-          </div>
-          <div>
-            <label for="summaryPrompt">总结提示词:</label>
-            <textarea id="summaryPrompt" rows="4" placeholder="例如：请总结以下内容" style="width: 100%;"></textarea>
-          </div>
-          
-          <div style="display: flex; gap: 10px; margin-top: 10px;">
-            <button id="editPresetPrompts">编辑预设提示词</button>
-            <button id="resetAllSettings">恢复默认设置</button>
-            <button id="saveSettings">保存设置</button>
+          <div class="settings-content">
+            <!-- API设置组 -->
+            <div class="settings-group">
+              <h3>API 设置</h3>
+            <div>
+              <label for="geminiApiKey">API Key:</label>
+              <input type="password" id="geminiApiKey" placeholder="请输入您的 Google Gemini API Key">
+            </div>
+            <div>
+              <label for="summaryPrompt">总结提示词:</label>
+              <textarea id="summaryPrompt" rows="4" placeholder="例如：请总结以下内容" style="width: 100%;"></textarea>
+            </div>
+            <div style="display: flex; gap: 10px; margin-top: 10px;">
+              <button id="editPresetPrompts">编辑预设提示词</button>
+              <button id="resetAllSettings">恢复默认设置</button>
+              <button id="saveSettings">保存设置</button>
+            </div>
           </div>
         </div>
       </div>
