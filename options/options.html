@@ -60,11 +60,8 @@
         <!-- 聊天记录将显示在这里 -->
       </div>
       <div class="chat-input">
-        <div class="preset-prompts-container">
-          <select id="presetPrompts" multiple>
-            <option value="">-- 选择预设提示词 --</option>
-          </select>
-        </div>
+        <!-- 替换原来的select元素 -->
+        <div id="presetPromptsContainer" class="preset-prompts-container"></div>
         <textarea id="chatInput" placeholder="输入您的问题..."></textarea>
         <button id="sendChatMessage">发送</button>
       </div>

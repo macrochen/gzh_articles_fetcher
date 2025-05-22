@@ -46,11 +46,6 @@ body {
 }
 
 
-.chat-container {
-  flex: 1;
-  padding: 20px;
-  overflow-y: auto;
-}
 
 .sidebar h1 {
   margin: 0;
@@ -144,59 +139,76 @@ button:hover {
 .chat-container {
   display: flex;
   flex-direction: column;
-  justify-content: flex-start;
-  align-items: center;
+  /* justify-content: flex-start; */ /* 可以移除或调整，让 chat-history 占据可用空间 */
+  /* align-items: center; */ /* 可以移除或调整 */
   height: 100%;
-  padding: 32px 24px 24px 24px;
+  padding: 20px; /* 统一一下 padding */
   background-color: #f5f5f5;
   border-left: 1px solid #ccc;
-  width: 45%;
+  width: 45%; /* 或者根据你的布局调整 */
   box-sizing: border-box;
+  /* overflow-y: scroll; */ /* 移除或改为 hidden，让内部元素自己处理滚动 */
 }
 
 .chat-header {
   width: 100%;
   font-size: 18px;
   font-weight: bold;
-  margin-bottom: 18px;
+  margin-bottom: 15px; /* 调整间距 */
+  flex-shrink: 0;
+}
+
+.article-dropdown {
+  width: 100%;
+  padding: 8px;
+  margin-bottom: 15px; /* 调整间距 */
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  flex-shrink: 0;
 }
 
 .chat-history {
+  box-sizing: border-box;
   width: 100%;
-  flex-grow: 1;
-  overflow-y: auto;
-  margin-bottom: 18px;
-  padding: 16px;
+  /* resize: vertical; */ /* 对 div 无效，移除 */
+  min-height: 300px; /* 调整一个合适的初始最小高度 */
+  /* max-height: 70vh;  */
+  overflow-y: auto;   /* 内部内容超出时滚动 */
   background-color: #fff;
   border-radius: 8px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.07);
+  padding: 10px;
+  position: relative; /* 为了 chatHistoryResizer 的绝对定位 */
+  flex-grow: 0; /* 让聊天记录区域占据剩余空间 */
+  display: flex; /* 使其成为flex容器 */
+  flex-direction: column; 
+  /* 内部消息垂直排列 */
 }
+
 
 .chat-input {
-  width: 100%;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 10px; /* 调整间距 */
+  margin-top: 15px; /* 与聊天记录区域的间距 */
+  width: 100%;
+  flex-shrink: 0;
 }
 
-#presetPrompts {
-  width: 100%;
-  padding: 8px;
-  border-radius: 4px;
+#chatInput { /* 这是聊天输入框的 textarea */
+  width: 100%; /* 占满父容器宽度 */
+  box-sizing: border-box; /* 确保 padding 和 border 不会使其溢出 */
+  min-height: 60px;
+  resize: vertical; /* 聊天输入框本身可以resize */
+  padding: 10px;
   border: 1px solid #ccc;
+  border-radius: 4px;
 }
 
-#chatInput {
+#sendChatMessage {
   width: 100%;
-  flex-grow: 1;
-  padding: 12px;
-  border-radius: 6px;
-  border: 1px solid #ddd;
-  resize: none;
-  min-height: 44px;
-  font-size: 15px;
-  margin-right: 0;
-  height: 40px;
+  padding: 10px;
+  /* 其他按钮样式 */
 }
 
 .chat-input button {
@@ -260,66 +272,29 @@ button:hover {
   color: #666;
 }
 
-/* 输入组样式 */
-.input-group {
-  margin-bottom: 15px;
-}
 
-.input-group label {
+.preset-prompts-container {
   display: block;
-  margin-bottom: 8px;
-  color: #333;
-  font-size: 14px;
 }
 
-/* 输入框和按钮统一高度 */
-.input-with-button {
+.preset-prompts-container h4 {
+  display: block;
+  margin-bottom: 10px;
+}
+
+.preset-items-container {
   display: flex;
+  flex-wrap: wrap;
   gap: 10px;
+}
+
+.preset-item {
+  display: flex;
   align-items: center;
-}
-
-.input-with-button input[type="text"],
-.input-with-button input[type="password"],
-.input-with-button button {
-  height: 36px;
-  padding: 0 12px;
-  border-radius: 4px;
-  font-size: 14px;
-  line-height: 36px;
-}
-
-.input-with-button input[type="text"],
-.input-with-button input[type="password"] {
-  flex: 1;
-  border: 1px solid #ddd;
-  background: #f5f5f5;
-  color: #666;
-}
-
-.input-with-button input[readonly] {
-  background: #f5f5f5;
-  color: #666;
-  cursor: pointer;
-}
-
-.input-with-button button {
   white-space: nowrap;
-  border: none;
-  background-color: #f1f3f4;
-  color: #1a73e8;
-  cursor: pointer;
-  transition: background-color 0.2s;
 }
 
-.input-with-button button:hover {
-  background-color: #e8eaed;
+.preset-item input[type="checkbox"] {
+  margin-right: 8px;
 }
 
-/* 按钮组样式 */
-.button-group {
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
-  margin-top: 20px;
-}

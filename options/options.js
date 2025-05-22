@@ -149,7 +149,10 @@ async function loadArticles() {
 
 function clearChatArea() {
   document.getElementById('chatWindowTitle').textContent = '与 Gemini 对话';
-  document.getElementById('chatHistory').innerHTML = '';
+  const chatHistoryElement = document.getElementById('chatHistory');
+  
+  chatHistoryElement.innerHTML = '';
+  
   document.getElementById('chatInput').value = '';
   currentChatArticle = null;
   chatHistory = [];
@@ -167,11 +170,9 @@ async function startChatWithArticle(title) {
   }
 
   currentChatArticle = article;
-  chatHistory = []; // 开始新的对话时清空历史
+  chatHistory = [];
 
-  // document.getElementById('chatWindowTitle').textContent = `与《${article.title}》对话`;
   const chatHistoryElement = document.getElementById('chatHistory');
-  chatHistoryElement.innerHTML = ''; // 清空之前的聊天记录
 
   document.getElementById('chatInput').focus();
 }
@@ -179,7 +180,7 @@ async function startChatWithArticle(title) {
 // 发送聊天消息
 async function sendChatMessage() {
   const inputElement = document.getElementById('chatInput');
-  const messageText = inputElement.value.trim();
+  const messageText = inputElement.value.trim(); 
 
   if (!messageText) return;
 
@@ -198,6 +199,12 @@ async function sendChatMessage() {
 
   appendMessageToChatHistory(messageText, 'user');
   inputElement.value = ''; // 清空输入框
+  
+  // 新增：清除所有预设提示词checkbox的选择状态
+  const checkboxes = document.querySelectorAll('#presetPromptsContainer input[type="checkbox"]');
+  checkboxes.forEach(checkbox => {
+    checkbox.checked = false;
+  });
 
   // 构建发送给 Gemini 的上下文
   // 可以包含之前的聊天记录和当前文章内容
@@ -252,33 +259,34 @@ async function sendChatMessage() {
   }
 }
 
-// 将消息添加到聊天记录中
-function appendMessageToChatHistory(text, sender) { // sender可以是 'user', 'gemini', 'system', 'error'
+/**
+ * 将消息追加到聊天记录 (div#chatHistory) 中。
+ * @param {string} text - 消息文本 (如果是AI消息，则为已转换为HTML的Markdown)
+ * @param {string} sender - 发送者 ('user', 'gemini', 'system', 'error')
+ */
+function appendMessageToChatHistory(text, sender) {
   const chatHistoryElement = document.getElementById('chatHistory');
-  const messageElement = document.createElement('div');
-  messageElement.classList.add('chat-message', sender);
-  
-  // 创建发送者标签
-  // const senderLabel = document.createElement('div');
-  // senderLabel.classList.add('sender-label');
-  senderLabel = sender === 'user' ? '我' : 
-                           sender === 'gemini' ? 'AI' : 
-                           sender === 'system' ? '系统' : '错误';
-  // messageElement.appendChild(senderLabel);
-  
-  // 创建消息内容容器
-  const messageContent = document.createElement('div');
-  messageContent.classList.add('message-content');
-  messageContent.innerHTML = "<strong>" + senderLabel + "</strong>：" + marked.parse(text); // 使用 innerHTML 来显示解析后的 markdown
-  messageElement.appendChild(messageContent);
-  
-  chatHistoryElement.appendChild(messageElement);
-  chatHistoryElement.scrollTop = chatHistoryElement.scrollHeight; // 自动滚动到底部
 
-  // 将用户和 Gemini 的消息存入 chatHistory 数组
-  if (sender === 'user' || sender === 'gemini') {
-    chatHistory.push({ sender, text });
-  }
+  // 创建消息元素 (基于你 options.js 中的 .chat-message 结构)
+  const messageElement = document.createElement('div');
+  messageElement.classList.add('chat-message', sender); // 使用你已有的类名
+
+  const senderLabel = sender === 'user' ? '我' :
+                     sender === 'gemini' ? 'AI' :
+                     sender === 'system' ? '系统' : '错误';
+
+  const messageContent = document.createElement('div');
+  messageContent.classList.add('message-content'); // 使用你已有的类名
+
+  messageContent.innerHTML = "<strong>" + senderLabel + "</strong>：" + marked.parse(text);
+  messageElement.appendChild(messageContent);
+
+  // 将完整的消息元素插入到聊天记录区域
+  chatHistoryElement.appendChild(messageElement);
+
+  // 自动滚动到底部，以便用户能看到最新消息
+  chatHistoryElement.scrollTop = chatHistoryElement.scrollHeight;
+
 }
 
 // 导出到 Google Drive (保持大部分不变，但确保文章数据是最新的)
@@ -326,30 +334,12 @@ async function exportToDrive() {
     
     const folderId = await getOrCreateFolder(accessToken, 'gzh');
     
-    // 确保所有文章都有总结，如果之前加载时未生成，这里再次尝试
-    const articlesToExport = await Promise.all(
-      articles.map(async (article) => {
-        let currentSummary = article.summary;
-        if (typeof currentSummary === 'undefined' || currentSummary.startsWith('总结失败') || currentSummary === '无总结') {
-            console.log(`为文章 "${article.title}" 在导出前生成总结...`);
-            currentSummary = await summarizeTextWithGemini(apiKey, article.textContent, summaryPrompt);
-        }
-        return {
-          title: article.title,
-          url: article.url,
-          content: article.textContent,
-          summary: currentSummary,
-        };
-      })
-    );
-
     const today = new Date();
     const formattedDate = `${(today.getMonth()+1).toString().padStart(2, '0')}${today.getDate().toString().padStart(2, '0')}${today.getHours().toString().padStart(2, '0')}${today.getMinutes().toString().padStart(2, '0')}${today.getSeconds().toString().padStart(2, '0')}`;
-    const jsonData = articlesToExport.map(article => ({
+    const jsonData = articles.map(article => ({
       title: article.title,
       url: article.url,
       content: article.content,
-      // summary: article.summary
     }));
 
     const fileContent = JSON.stringify(jsonData, null, 2);
@@ -388,60 +378,6 @@ async function exportToDrive() {
   }
 }
 
-// 使用 Gemini API 总结文本
-async function summarizeTextWithGemini(apiKey, textToSummarize, userPrompt) {
-  // 注意：这里需要替换为实际的 Gemini API endpoint 和请求格式
-  // 以下是一个假设的 Gemini API 调用示例，您需要根据官方文档进行调整
-  const API_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
-
-  if (!textToSummarize || textToSummarize.trim() === '') {
-    console.warn('文本内容为空，跳过总结');
-    return ''; // 如果文本为空，返回空字符串
-  }
-
-  const requestBody = {
-    contents: [{
-      parts: [{
-        text: `${userPrompt}\n\n${textToSummarize}`
-      }]
-    }],
-    // 可以添加 generationConfig 等参数控制输出
-    generationConfig: {
-      "temperature": 0.3,
-      "topK": 30,
-      "topP": 0.7,
-      "maxOutputTokens": 5000
-    }
-  };
-
-  try {
-    const response = await fetch(API_ENDPOINT, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(requestBody),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      console.error('Gemini API error:', errorData);
-      throw new Error(`Gemini API 请求失败: ${errorData.error?.message || response.status}`);
-    }
-
-    const data = await response.json();
-    // 根据 Gemini API 的实际响应结构提取总结文本
-    // 假设总结在 data.candidates[0].content.parts[0].text
-    if (data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts && data.candidates[0].content.parts[0]) {
-      return data.candidates[0].content.parts[0].text;
-    }
-    return '总结内容提取失败';
-  } catch (error) {
-    console.error('调用 Gemini API 失败:', error);
-    // 在生产环境中，您可能希望更优雅地处理这个错误，例如返回原始文本或一个错误标记
-    return `总结失败: ${error.message}`;
-  }
-}
 
 // 获取或创建文件夹
 async function getOrCreateFolder(token, folderName) {
@@ -551,8 +487,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
   
-  // 初始化分割线拖动功能
-  // initResizer();
 
   // 允许按 Enter 键发送消息
   document.getElementById('chatInput').addEventListener('keypress', function (e) {
@@ -583,16 +517,18 @@ document.addEventListener('DOMContentLoaded', () => {
   // 绑定删除选中按钮
   document.getElementById('deleteSelected').addEventListener('click', deleteSelectedArticles);
 
-  const presetSelect = document.getElementById('presetPrompts');
-  
+  const presetSelect = document.getElementById('presetPromptsContainer');
+
+  // 修改为监听 change 事件
   presetSelect.addEventListener('change', function() {
-    const selectedOptions = Array.from(this.selectedOptions)
-      .map(option => option.value)
-      .filter(value => value !== '');
-      
-    if (selectedOptions.length > 0) {
-      document.getElementById('chatInput').value = selectedOptions.join('\n');
-    }
+    // 获取所有选中的 checkbox
+    const selectedCheckboxes = this.querySelectorAll('input[type="checkbox"]:checked');
+    
+    // 将选中的值连接成字符串
+    const selectedValues = Array.from(selectedCheckboxes).map(cb => cb.value).join('\n');
+    
+    // 更新到 chatInput
+    document.getElementById('chatInput').value = selectedValues;
   });
 
 
@@ -861,17 +797,37 @@ async function loadPresetPrompts() {
   let presetPrompts = result.presetPrompts || DEFAULT_PRESET_PROMPTS;
   
   // 更新两个预设提示词下拉菜单
-  const presetSelectors = document.querySelectorAll('#presetPrompts');
-  presetSelectors.forEach(selector => {
-    selector.innerHTML = '<option value="">-- 选择预设提示词 --</option>';
-        
-    // 使用数组的forEach来保持顺序
-    presetPrompts.forEach(preset => {
-      const option = document.createElement('option');
-      option.value = preset.prompt;
-      option.textContent = preset.name;
-      selector.appendChild(option);
-    });
+  const presetSelectors = document.querySelectorAll('#presetPromptsContainer');
+  presetSelectors.forEach(container => {
+    container.innerHTML = ''; // 清空容器
+  
+    // 创建标题
+  const title = document.createElement('h4');
+  title.textContent = '选择预设提示词：';
+  container.appendChild(title);
+  
+  const itemsContainer = document.createElement('div');
+  itemsContainer.className = 'preset-items-container';
+  container.appendChild(itemsContainer);
+
+  // 创建checkbox列表
+  presetPrompts.forEach(preset => {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'preset-item';
+  
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.id = `preset-${preset.name}`;
+    checkbox.value = preset.prompt;
+  
+    const label = document.createElement('label');
+    label.htmlFor = `preset-${preset.name}`;
+    label.textContent = preset.name;
+  
+    wrapper.appendChild(checkbox);
+    wrapper.appendChild(label);
+    itemsContainer.appendChild(wrapper);
+  });
   });
 }
 
@@ -1046,42 +1002,3 @@ function editPresetPrompts() {
     document.getElementById('cancelEdit').addEventListener('click', closeDialog);
   });
 }
-
-
-function initResizer() {
-  const resizer = document.getElementById('dragMe');
-  const sidebar = document.querySelector('.sidebar');
-  let isResizing = false;
-
-  resizer.addEventListener('mousedown', (e) => {
-    isResizing = true;
-    resizer.classList.add('dragging');
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', stopResizing);
-  });
-
-  function handleMouseMove(e) {
-    if (!isResizing) return;
-    
-    // 计算宽度百分比
-    const containerWidth = document.querySelector('.main-container').offsetWidth;
-    let newWidth = (e.clientX / containerWidth) * 100;
-    
-    // 限制最小和最大宽度
-    newWidth = Math.min(Math.max(newWidth, 20), 80);
-    
-    // 更新侧边栏和分割线位置
-    sidebar.style.width = `${newWidth}%`;
-    resizer.style.left = `${newWidth}%`;
-  }
-
-  function stopResizing() {
-    isResizing = false;
-    resizer.classList.remove('dragging');
-    document.removeEventListener('mousemove', handleMouseMove);
-    document.removeEventListener('mouseup', stopResizing);
-  }
-}
-
-
-
