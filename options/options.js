@@ -218,16 +218,21 @@ async function sendChatMessage() {
   });
   conversationContext += `用户: ${messageText}\nGemini:`; // 提示模型继续回答
 
+
+  // 3. 为 AI 的回复创建一个DOM占位符，并获取它
+  // 传递一个空文本，让 appendMessageToChatHistory 创建结构
+  const aiMessageElement = appendMessageToChatHistory("▌", 'gemini');
+  // 初始时，让内容部分显示一个光标或者加载中的提示
+  const aiMessageContentElement = aiMessageElement.querySelector('.message-content');
+  if (aiMessageContentElement) {
+      aiMessageContentElement.innerHTML = marked.parse("▌"); // 使用 marked.parse 来确保和后续更新一致
+  }
+
+
   try {
-    // 调用 Gemini API (使用一个更通用的函数，因为不再只是总结)
-    const API_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+    const API_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:streamGenerateContent?key=${apiKey}&alt=sse`;
     const requestBody = {
-      contents: [{
-        parts: [{
-          text: conversationContext
-        }]
-      }],
-      // 可以添加 generationConfig 等参数控制输出
+      contents: [{ parts: [{ text: conversationContext }] }],
       generationConfig: {
         "temperature": 0.3,
         "topK": 30,
@@ -247,15 +252,79 @@ async function sendChatMessage() {
       throw new Error(`Gemini API error: ${errorData.error?.message || response.status}`);
     }
 
-    const data = await response.json();
-    let geminiResponse = '未能获取回复。';
-    if (data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts && data.candidates[0].content.parts[0]) {
-      geminiResponse = data.candidates[0].content.parts[0].text;
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let done = false;
+    let accumulatedMarkdown = ""; // 用于累积AI回复的原始Markdown文本
+
+    // 在开始接收流之前，清除占位符的初始内容 (比如光标)
+    if (aiMessageContentElement) {
+        aiMessageContentElement.innerHTML = '';
     }
-    appendMessageToChatHistory(geminiResponse, 'gemini');
+
+    while (!done) {
+      const { value, done: readerDone } = await reader.read();
+      done = readerDone;
+      if (value) {
+        const chunk = decoder.decode(value, { stream: true });
+        const lines = chunk.split('\n');
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            try {
+              const jsonData = JSON.parse(line.substring(5));
+              if (jsonData.candidates?.[0]?.content?.parts?.[0]?.text) {
+                const textPart = jsonData.candidates[0].content.parts[0].text;
+                accumulatedMarkdown += textPart;
+
+                // 更新AI消息占位符的innerHTML
+                if (aiMessageContentElement) {
+                  aiMessageContentElement.innerHTML = marked.parse(accumulatedMarkdown + "▌"); // 添加一个闪烁的光标效果
+                }
+                // 滚动到底部
+                const chatHistoryElement = document.getElementById('chatHistory');
+                chatHistoryElement.scrollTop = chatHistoryElement.scrollHeight;
+              }
+            } catch (e) {
+              // console.warn('Failed to parse JSON chunk or update UI:', line, e);
+            }
+          }
+        }
+      }
+    }
+
+    // 流式结束后，移除末尾的光标，并更新最终的HTML
+    if (aiMessageContentElement) {
+        aiMessageContentElement.innerHTML = marked.parse(accumulatedMarkdown);
+    }
+    // 将最终的累积Markdown文本存入 chatHistory 数组
+    // if (window.chatHistory) {
+    //   const existingAiMessageIndex = window.chatHistory.findIndex(msg => msg.sender === 'gemini_streaming_placeholder'); // 假设我们之前用特殊标记
+    //   if (existingAiMessageIndex > -1) {
+    //       window.chatHistory[existingAiMessageIndex] = { sender: 'gemini', text: accumulatedMarkdown };
+    //   } else {
+    //       // 如果是全新的消息（非更新占位符的场景，虽然这里是更新）
+    //       window.chatHistory.push({ sender: 'gemini', text: accumulatedMarkdown });
+    //   }
+    // }
+     // 再次滚动确保完全到底
+    const chatHistoryElement = document.getElementById('chatHistory');
+    chatHistoryElement.scrollTop = chatHistoryElement.scrollHeight;
+
+
   } catch (error) {
-    console.error('调用 Gemini API 进行对话失败:', error);
-    appendMessageToChatHistory(`抱歉，与 Gemini 对话时发生错误: ${error.message}`, 'error');
+    console.error('调用 Gemini API 进行流式对话失败:', error);
+    // 更新AI消息占位符为错误信息
+    if (aiMessageContentElement) {
+      const tempDiv = document.createElement('div');
+      tempDiv.textContent = `抱歉，与 Gemini 对话时发生错误: ${error.message}`;
+      aiMessageContentElement.innerHTML = tempDiv.innerHTML.replace(/\n/g, '<br>');
+    } else { // 如果aiMessageContentElement也找不到了，就用老方法追加错误
+        appendMessageToChatHistory(`抱歉，与 Gemini 对话时发生错误: ${error.message}`, 'error');
+    }
+    // 存储错误信息到历史
+    if (window.chatHistory) {
+        window.chatHistory.push({ sender: 'error', text: `抱歉，与 Gemini 对话时发生错误: ${error.message}` });
+    }
   }
 }
 
@@ -275,10 +344,15 @@ function appendMessageToChatHistory(text, sender) {
                      sender === 'gemini' ? 'AI' :
                      sender === 'system' ? '系统' : '错误';
 
+  const senderContent = document.createElement('div');
+  senderContent.innerHTML = "<strong>" + senderLabel + "</strong>：";
+  senderContent.classList.add('sender-content'); // 使用你已有的类名
+  messageElement.appendChild(senderContent);
+
   const messageContent = document.createElement('div');
   messageContent.classList.add('message-content'); // 使用你已有的类名
 
-  messageContent.innerHTML = "<strong>" + senderLabel + "</strong>：" + marked.parse(text);
+  messageContent.innerHTML = marked.parse(text);
   messageElement.appendChild(messageContent);
 
   // 将完整的消息元素插入到聊天记录区域
@@ -287,6 +361,7 @@ function appendMessageToChatHistory(text, sender) {
   // 自动滚动到底部，以便用户能看到最新消息
   chatHistoryElement.scrollTop = chatHistoryElement.scrollHeight;
 
+  return messageElement; // 返回创建或更新的元素，方便流式更新
 }
 
 // 导出到 Google Drive (保持大部分不变，但确保文章数据是最新的)

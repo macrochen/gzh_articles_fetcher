@@ -298,3 +298,58 @@ button:hover {
   margin-right: 8px;
 }
 
+/* 聊天消息样式 */
+.chat-message {
+  margin-bottom: 15px;
+  padding: 12px;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  max-width: 100%;
+  word-wrap: break-word;
+}
+
+/* 用户消息样式 */
+.chat-message.user {
+  background-color: #e3f2fd; /* 浅蓝色背景 */
+  border-left: 4px solid #2196F3;
+  margin-left: 10px;
+}
+
+/* AI消息样式 */
+.chat-message.gemini {
+  background-color: #f1f8e9; /* 浅绿色背景 */
+  border-left: 4px solid #8bc34a;
+  margin-right: 10px;
+}
+
+/* 错误消息样式 */
+.chat-message.error {
+  background-color: #ffebee; /* 浅红色背景 */
+  border-left: 4px solid #f44336;
+}
+
+/* 系统消息样式 */
+.chat-message.system {
+  background-color: #fff8e1; /* 浅黄色背景 */
+  border-left: 4px solid #ffc107;
+}
+
+/* 发送者标签样式 */
+.sender-content {
+  font-weight: bold;
+  margin-bottom: 5px;
+}
+
+/* 消息内容样式 */
+.message-content {
+  line-height: 1.5;
+}
+
+/* 消息内容中的代码块样式 */
+.message-content pre {
+  background-color: #f5f5f5;
+  padding: 10px;
+  border-radius: 4px;
+  overflow-x: auto;
+}
+
