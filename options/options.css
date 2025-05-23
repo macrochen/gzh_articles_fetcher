@@ -43,6 +43,9 @@ body {
   display: flex;
   flex-direction: column;
   gap: 20px;
+
+  position: relative;
+  padding-right: 20px;
 }
 
 
@@ -398,4 +401,36 @@ button:hover {
 .chat-button:hover {
   background-color: #45a049;
 }
+
+
+.scroll-to-operation {
+  position: fixed;
+  right: 20px;
+  top: 50%;
+  transform: translateY(-50%);
+  background-color: rgba(0, 0, 0, 0.6);
+  color: white;
+  padding: 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 14px;
+  transition: background-color 0.3s;
+}
+
+.scroll-to-operation:hover {
+  background-color: rgba(0, 0, 0, 0.8);
+}
+
+.scroll-to-operation .icon {
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 

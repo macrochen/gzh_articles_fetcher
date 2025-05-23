@@ -577,6 +577,43 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('exportToDrive').addEventListener('click', exportToDrive);
   document.getElementById('sendChatMessage').addEventListener('click', sendChatMessage);
   
+  document.getElementById('scrollToOperation').addEventListener('click', () => {
+    const settingsSection = document.querySelector('.actions');
+    if (settingsSection) {
+      settingsSection.scrollIntoView({ behavior: 'smooth' });
+    }
+  });
+
+  // 监听选中文本事件
+  document.addEventListener('mouseup', function() {
+    const selectedText = window.getSelection().toString().trim();
+    if (selectedText) {
+      // 如果有选中的文本，就复制到剪贴板
+      navigator.clipboard.writeText(selectedText).then(() => {
+        // 可以添加一个临时的提示，显示复制成功
+        const notification = document.createElement('div');
+        notification.textContent = '已复制';
+        notification.style.position = 'fixed';
+        notification.style.left = '50%';
+        notification.style.top = '50%';
+        notification.style.transform = 'translate(-50%, -50%)';
+        notification.style.padding = '8px 12px';
+        notification.style.background = 'rgba(0, 0, 0, 0.7)';
+        notification.style.color = 'white';
+        notification.style.borderRadius = '4px';
+        notification.style.fontSize = '14px';
+        notification.style.zIndex = '9999';
+        
+        document.body.appendChild(notification);
+        
+        // 1秒后移除提示
+        setTimeout(() => {
+          notification.remove();
+        }, 1000);
+      });
+    }
+  });
+  
   // 添加选择最后5篇文章的功能
   document.getElementById('selectLastFive').addEventListener('click', function() {
     // 先取消所有选中状态
@@ -664,8 +701,10 @@ document.addEventListener('DOMContentLoaded', () => {
     // 将选中的值连接成字符串
     const selectedValues = Array.from(selectedCheckboxes).map(cb => cb.value).join('\n');
     
-    // 更新到 chatInput
-    document.getElementById('chatInput').value = selectedValues;
+    // 更新到 chatInput 并获得焦点
+    const chatInput = document.getElementById('chatInput');
+    chatInput.value = selectedValues;
+    chatInput.focus();
   });
 
 
@@ -822,7 +861,41 @@ async function updateArticleSummaries(summaries) {
   // 将 Markdown 转换为 HTML 并添加到结果区域
   const summaryContent = document.createElement('div');
   summaryContent.className = 'summary-content';
-  summaryContent.innerHTML = marked.parse(markdownContent);
+  
+  // 先转换Markdown为HTML
+  let processedHTML = marked.parse(markdownContent);
+  
+  // 处理所有标题，添加对话按钮
+  const titleRegex = /\[(\d+)\] 《([^》]+)》/g;
+  let match;
+  let lastIndex = 0;
+  
+  while ((match = titleRegex.exec(markdownContent)) !== null) {
+    const [fullMatch, number, title] = match;
+    const buttonHTML = `<button class="chat-button" style="font-size: 10px; padding: 1px 6px; margin-left: 4px;" data-title="${title.replace(/"/g, '&quot;')}">对话</button>`;
+    
+    // 在标题后面插入按钮，并添加红色样式
+    const matchInHTML = processedHTML.indexOf(fullMatch);
+    if (matchInHTML !== -1) {
+      const styledTitle = `<span style="color: red">${fullMatch}</span>`;
+      processedHTML = processedHTML.slice(0, matchInHTML) + styledTitle + buttonHTML + processedHTML.slice(matchInHTML + fullMatch.length);
+    }
+  }
+  
+  summaryContent.innerHTML = processedHTML;
+  
+  // 为新添加的对话按钮绑定事件监听器
+  summaryContent.querySelectorAll('.chat-button').forEach(button => {
+    button.addEventListener('click', function() {
+      const title = this.dataset.title;
+      // 设置下拉框选中该文章
+      const dropdown = document.getElementById('articleDropdown');
+      dropdown.value = title;
+      // 开始对话
+      startChatWithArticle(title);
+    });
+  });
+  
   summaryResults.appendChild(summaryContent);
 
   // 将总结结果插入到操作按钮区域下方
