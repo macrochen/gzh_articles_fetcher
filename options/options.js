@@ -169,11 +169,15 @@ async function startChatWithArticle(title) {
     return;
   }
 
+  // 清理聊天历史
   currentChatArticle = article;
   chatHistory = [];
-
+  
+  // 清理聊天界面
   const chatHistoryElement = document.getElementById('chatHistory');
-
+  chatHistoryElement.innerHTML = '';
+  
+  // 聚焦到输入框
   document.getElementById('chatInput').focus();
 }
 
@@ -596,8 +600,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // 修改为监听 change 事件
   presetSelect.addEventListener('change', function() {
-    // 获取所有选中的 checkbox
-    const selectedCheckboxes = this.querySelectorAll('input[type="checkbox"]:checked');
+    // 获取所有选中的 checkbox，但排除全选复选框
+    const selectedCheckboxes = this.querySelectorAll('input[type="checkbox"]:checked:not(#select-all-presets)');
     
     // 将选中的值连接成字符串
     const selectedValues = Array.from(selectedCheckboxes).map(cb => cb.value).join('\n');
@@ -641,19 +645,36 @@ async function deleteSelectedArticles() {
     return;
   }
 
-  const titles = Array.from(checkboxes).map(cb => cb.dataset.title);
-  if (confirm(`确定要删除选中的${titles.length}篇文章吗？`)) {
-    const result = await chrome.storage.local.get('articles');
-    let articles = result.articles || [];
-    articles = articles.filter(a => !titles.includes(a.title));
-    await chrome.storage.local.set({ articles });
-    loadArticles();
-    
-    // 如果删除的是当前正在聊天的文章，则清空聊天区域
-    if (currentChatArticle && titles.includes(currentChatArticle.title)) {
-      clearChatArea();
-    }
+  if (!confirm('确定要删除选中的文章吗？')) {
+    return;
   }
+
+  const result = await chrome.storage.local.get('articles');
+  let articles = result.articles || [];
+  
+  // 获取要删除的文章标题
+  const titlesToDelete = Array.from(checkboxes).map(cb => cb.dataset.title);
+  
+  // 过滤掉要删除的文章
+  articles = articles.filter(article => !titlesToDelete.includes(article.title));
+  
+  // 保存更新后的文章列表
+  await chrome.storage.local.set({ articles });
+  
+  // 更新文章对话下拉列表
+  const dropdown = document.getElementById('articleDropdown');
+  dropdown.innerHTML = '<option value="">-- 选择文章开始对话 --</option>' + 
+    articles.map(article => 
+      `<option value="${article.title.replace(/"/g, '&quot;')}">${article.title}</option>`
+    ).join('');
+  
+  // 如果当前正在对话的文章被删除，清理对话区域
+  if (currentChatArticle && titlesToDelete.includes(currentChatArticle.title)) {
+    clearChatArea();
+  }
+  
+  // 重新加载文章列表
+  loadArticles();
 }
 
 // 创建加载提示
@@ -877,32 +898,56 @@ async function loadPresetPrompts() {
     container.innerHTML = ''; // 清空容器
   
     // 创建标题
-  const title = document.createElement('h4');
-  title.textContent = '选择预设提示词：';
-  container.appendChild(title);
+    const title = document.createElement('h4');
+    title.textContent = '选择预设提示词：';
+    container.appendChild(title);
   
-  const itemsContainer = document.createElement('div');
-  itemsContainer.className = 'preset-items-container';
-  container.appendChild(itemsContainer);
+    const itemsContainer = document.createElement('div');
+    itemsContainer.className = 'preset-items-container';
+    container.appendChild(itemsContainer);
 
-  // 创建checkbox列表
-  presetPrompts.forEach(preset => {
-    const wrapper = document.createElement('div');
-    wrapper.className = 'preset-item';
-  
-    const checkbox = document.createElement('input');
-    checkbox.type = 'checkbox';
-    checkbox.id = `preset-${preset.name}`;
-    checkbox.value = preset.prompt;
-  
-    const label = document.createElement('label');
-    label.htmlFor = `preset-${preset.name}`;
-    label.textContent = preset.name;
-  
-    wrapper.appendChild(checkbox);
-    wrapper.appendChild(label);
-    itemsContainer.appendChild(wrapper);
-  });
+    // 创建全选复选框
+    const selectAllWrapper = document.createElement('div');
+    selectAllWrapper.className = 'preset-item';
+    
+    const selectAllCheckbox = document.createElement('input');
+    selectAllCheckbox.type = 'checkbox';
+    selectAllCheckbox.id = 'select-all-presets';
+    
+    const selectAllLabel = document.createElement('label');
+    selectAllLabel.htmlFor = 'select-all-presets';
+    selectAllLabel.textContent = '全选';
+    
+    // 添加全选复选框的事件监听器
+    selectAllCheckbox.addEventListener('change', (e) => {
+      const checkboxes = itemsContainer.querySelectorAll('input[type="checkbox"]');
+      checkboxes.forEach(checkbox => {
+        checkbox.checked = e.target.checked;
+      });
+    });
+    
+    selectAllWrapper.appendChild(selectAllCheckbox);
+    selectAllWrapper.appendChild(selectAllLabel);
+    itemsContainer.appendChild(selectAllWrapper);
+
+    // 创建checkbox列表
+    presetPrompts.forEach(preset => {
+      const wrapper = document.createElement('div');
+      wrapper.className = 'preset-item';
+    
+      const checkbox = document.createElement('input');
+      checkbox.type = 'checkbox';
+      checkbox.id = `preset-${preset.name}`;
+      checkbox.value = preset.prompt;
+    
+      const label = document.createElement('label');
+      label.htmlFor = `preset-${preset.name}`;
+      label.textContent = preset.name;
+    
+      wrapper.appendChild(checkbox);
+      wrapper.appendChild(label);
+      itemsContainer.appendChild(wrapper);
+    });
   });
 }
 
