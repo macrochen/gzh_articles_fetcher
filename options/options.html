@@ -36,10 +36,11 @@
         </div>
       </div>
       
-      <h1>文章列表</h1>
+      <h1>&nbsp;&nbsp;<label><input type="checkbox" id="selectAll">&nbsp;</label>文章列表</h1>
+      
       <div class="articles-list" id="articlesList"></div>
       <div class="actions">
-        <label><input type="checkbox" id="selectAll">全选</label>
+        <button id="selectLastFive">选5</button>
         <button id="deleteSelected">删除选中</button>
         <button id="summarizeSelected">批量总结</button>
         <button id="exportToDrive">全部导出到 Google Drive</button>
@@ -52,7 +53,6 @@
     
     <!-- 右侧聊天区域 -->
     <div class="chat-container">
-      <div class="chat-header" id="chatWindowTitle">与 Gemini 对话</div>
       <select id="articleDropdown" class="article-dropdown">
         <option value="">-- 选择文章开始对话 --</option>
       </select>

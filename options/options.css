@@ -142,7 +142,7 @@ button:hover {
   /* justify-content: flex-start; */ /* 可以移除或调整，让 chat-history 占据可用空间 */
   /* align-items: center; */ /* 可以移除或调整 */
   height: 100%;
-  padding: 20px; /* 统一一下 padding */
+  padding: 5px; /* 统一一下 padding */
   background-color: #f5f5f5;
   border-left: 1px solid #ccc;
   width: 45%; /* 或者根据你的布局调整 */
@@ -160,7 +160,7 @@ button:hover {
 
 .article-dropdown {
   width: 100%;
-  padding: 8px;
+  padding: 5px;
   margin-bottom: 15px; /* 调整间距 */
   border: 1px solid #ddd;
   border-radius: 4px;
@@ -351,5 +351,51 @@ button:hover {
   padding: 10px;
   border-radius: 4px;
   overflow-x: auto;
+}
+
+.article-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.title-container {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0; /* 确保flex-shrink生效 */
+}
+
+.article-title {
+  margin: 0;
+  flex: 1;
+  min-width: 0; /* 确保flex-shrink生效 */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.article-title a {
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.chat-button {
+  flex-shrink: 0; /* 防止按钮被压缩 */
+  padding: 4px 12px;
+  background-color: #4CAF50;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+.chat-button:hover {
+  background-color: #45a049;
 }
 

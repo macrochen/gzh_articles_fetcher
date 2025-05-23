@@ -123,7 +123,12 @@ async function loadArticles() {
     <div class="article-item collapsed">
       <div class="article-header">
         <input type="checkbox" class="article-checkbox" data-title="${article.title.replace(/"/g, '&quot;')}">
-        <h3><a href="${article.url}" target="_blank">${article.title}</a></h3>
+        <div class="title-container">
+          <h3 class="article-title">
+            <a href="${article.url}" target="_blank" title="${article.title}">${article.title}</a>
+          </h3>
+          <button class="chat-button" data-title="${article.title.replace(/"/g, '&quot;')}">对话</button>
+        </div>
       </div>
     </div>
   `).join('');
@@ -142,13 +147,24 @@ async function loadArticles() {
     }
   });
 
+  // 添加对话按钮的事件监听
+  document.querySelectorAll('.chat-button').forEach(button => {
+    button.addEventListener('click', function() {
+      const title = this.dataset.title;
+      // 设置下拉框选中该文章
+      const dropdown = document.getElementById('articleDropdown');
+      dropdown.value = title;
+      // 开始对话
+      startChatWithArticle(title);
+    });
+  });
+
   
 }
 
 
 
 function clearChatArea() {
-  document.getElementById('chatWindowTitle').textContent = '与 Gemini 对话';
   const chatHistoryElement = document.getElementById('chatHistory');
   
   chatHistoryElement.innerHTML = '';
@@ -299,17 +315,9 @@ async function sendChatMessage() {
     // 流式结束后，移除末尾的光标，并更新最终的HTML
     if (aiMessageContentElement) {
         aiMessageContentElement.innerHTML = marked.parse(accumulatedMarkdown);
+        // 更新存储的原始 Markdown 文本
+        aiMessageElement.dataset.markdownContent = accumulatedMarkdown;
     }
-    // 将最终的累积Markdown文本存入 chatHistory 数组
-    // if (window.chatHistory) {
-    //   const existingAiMessageIndex = window.chatHistory.findIndex(msg => msg.sender === 'gemini_streaming_placeholder'); // 假设我们之前用特殊标记
-    //   if (existingAiMessageIndex > -1) {
-    //       window.chatHistory[existingAiMessageIndex] = { sender: 'gemini', text: accumulatedMarkdown };
-    //   } else {
-    //       // 如果是全新的消息（非更新占位符的场景，虽然这里是更新）
-    //       window.chatHistory.push({ sender: 'gemini', text: accumulatedMarkdown });
-    //   }
-    // }
      // 再次滚动确保完全到底
     const chatHistoryElement = document.getElementById('chatHistory');
     chatHistoryElement.scrollTop = chatHistoryElement.scrollHeight;
@@ -340,32 +348,65 @@ async function sendChatMessage() {
 function appendMessageToChatHistory(text, sender) {
   const chatHistoryElement = document.getElementById('chatHistory');
 
-  // 创建消息元素 (基于你 options.js 中的 .chat-message 结构)
+  // 创建消息元素
   const messageElement = document.createElement('div');
-  messageElement.classList.add('chat-message', sender); // 使用你已有的类名
+  messageElement.classList.add('chat-message', sender);
 
   const senderLabel = sender === 'user' ? '我' :
                      sender === 'gemini' ? 'AI' :
                      sender === 'system' ? '系统' : '错误';
 
   const senderContent = document.createElement('div');
-  senderContent.innerHTML = "<strong>" + senderLabel + "</strong>：";
-  senderContent.classList.add('sender-content'); // 使用你已有的类名
+  senderContent.classList.add('sender-content');
+  
+  // 为AI消息添加复制按钮
+  if (sender === 'gemini') {
+    const headerContainer = document.createElement('div');
+    headerContainer.style.display = 'flex';
+    headerContainer.style.justifyContent = 'space-between';
+    headerContainer.style.alignItems = 'center';
+    
+    const senderLabel = document.createElement('strong');
+    senderLabel.textContent = 'AI：';
+    
+    const copyButton = document.createElement('button');
+    copyButton.textContent = '复制';
+    copyButton.style.fontSize = '12px';
+    copyButton.style.padding = '2px 8px';
+    copyButton.style.marginLeft = '8px';
+    
+    // 存储原始的 Markdown 文本，用于复制
+    messageElement.dataset.markdownContent = text;
+    
+    copyButton.addEventListener('click', () => {
+      // 使用存储的原始 Markdown 文本进行复制
+      navigator.clipboard.writeText(messageElement.dataset.markdownContent).then(() => {
+        const originalText = copyButton.textContent;
+        copyButton.textContent = '已复制！';
+        setTimeout(() => {
+          copyButton.textContent = originalText;
+        }, 2000);
+      });
+    });
+    
+    headerContainer.appendChild(senderLabel);
+    headerContainer.appendChild(copyButton);
+    senderContent.appendChild(headerContainer);
+  } else {
+    senderContent.innerHTML = "<strong>" + senderLabel + "</strong>：";
+  }
+  
   messageElement.appendChild(senderContent);
 
   const messageContent = document.createElement('div');
-  messageContent.classList.add('message-content'); // 使用你已有的类名
-
+  messageContent.classList.add('message-content');
   messageContent.innerHTML = marked.parse(text);
   messageElement.appendChild(messageContent);
 
-  // 将完整的消息元素插入到聊天记录区域
   chatHistoryElement.appendChild(messageElement);
-
-  // 自动滚动到底部，以便用户能看到最新消息
   chatHistoryElement.scrollTop = chatHistoryElement.scrollHeight;
 
-  return messageElement; // 返回创建或更新的元素，方便流式更新
+  return messageElement;
 }
 
 // 导出到 Google Drive (保持大部分不变，但确保文章数据是最新的)
@@ -535,6 +576,23 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('saveSettings').addEventListener('click', saveSettings);
   document.getElementById('exportToDrive').addEventListener('click', exportToDrive);
   document.getElementById('sendChatMessage').addEventListener('click', sendChatMessage);
+  
+  // 添加选择最后5篇文章的功能
+  document.getElementById('selectLastFive').addEventListener('click', function() {
+    // 先取消所有选中状态
+    document.querySelectorAll('.article-checkbox').forEach(checkbox => {
+      checkbox.checked = false;
+    });
+    
+    // 获取所有文章的复选框
+    const checkboxes = Array.from(document.querySelectorAll('.article-checkbox'));
+    
+    // 选中最后5篇文章
+    checkboxes.slice(-5).forEach(checkbox => {
+      checkbox.checked = true;
+    });
+  });
+
   document.getElementById('copyToClipboard').addEventListener('click', async function() {
     const checkboxes = document.querySelectorAll('.article-checkbox:checked');
     if (checkboxes.length === 0) {
@@ -884,6 +942,10 @@ const DEFAULT_PRESET_PROMPTS = [
   {
     name: "新颖见解",
     prompt: "找出这篇文章中新颖或反直觉的观点"
+  },
+  {
+    name: "科普[x]",
+    prompt: "大白话科普一下"
   }
 ];
 
