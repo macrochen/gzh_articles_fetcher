@@ -257,7 +257,7 @@ async function sendChatMessage() {
         "temperature": 0.3,
         "topK": 30,
         "topP": 0.7,
-        "maxOutputTokens": 5000
+        "maxOutputTokens": 50000
       }
     };
 
@@ -317,10 +317,9 @@ async function sendChatMessage() {
         aiMessageContentElement.innerHTML = marked.parse(accumulatedMarkdown);
         // 更新存储的原始 Markdown 文本
         aiMessageElement.dataset.markdownContent = accumulatedMarkdown;
+        // 滚动到 AI 回答的开头位置
+        aiMessageElement.scrollIntoView({ behavior: 'smooth' });
     }
-     // 再次滚动确保完全到底
-    const chatHistoryElement = document.getElementById('chatHistory');
-    chatHistoryElement.scrollTop = chatHistoryElement.scrollHeight;
 
 
   } catch (error) {
@@ -404,7 +403,14 @@ function appendMessageToChatHistory(text, sender) {
   messageElement.appendChild(messageContent);
 
   chatHistoryElement.appendChild(messageElement);
-  chatHistoryElement.scrollTop = chatHistoryElement.scrollHeight;
+  
+  if (sender === 'gemini') {
+    // AI 回答完成后，自动滚动到该消息的开头位置
+    messageElement.scrollIntoView({ behavior: 'smooth' });
+  } else {
+    // 其他消息保持原有的滚动到底部行为
+    chatHistoryElement.scrollTop = chatHistoryElement.scrollHeight;
+  }
 
   return messageElement;
 }
@@ -828,7 +834,7 @@ async function callBatchSummaryAPI(apiKey, summaryPrompt, selectedArticles) {
       "temperature": 0.3,
       "topK": 30,
       "topP": 0.7,
-      "maxOutputTokens": 100000
+      "maxOutputTokens": 500000
     }
   
   };
