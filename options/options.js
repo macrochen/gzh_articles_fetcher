@@ -694,16 +694,29 @@ document.addEventListener('DOMContentLoaded', () => {
   const presetSelect = document.getElementById('presetPromptsContainer');
 
   // 修改为监听 change 事件
-  presetSelect.addEventListener('change', function() {
+  presetSelect.addEventListener('change', async function() {
     // 获取所有选中的 checkbox，但排除全选复选框
     const selectedCheckboxes = this.querySelectorAll('input[type="checkbox"]:checked:not(#select-all-presets)');
     
-    // 将选中的值连接成字符串
-    const selectedValues = Array.from(selectedCheckboxes).map(cb => cb.value).join('\n');
-    
-    // 更新到 chatInput 并获得焦点
+    // 获取 chatInput 元素
     const chatInput = document.getElementById('chatInput');
-    chatInput.value = selectedValues;
+    
+    // 如果选中的是展开[x]复选框
+    if (selectedCheckboxes.length === 1 && selectedCheckboxes[0].id === "preset-展开[x]" ) {
+      try {
+        // 读取剪贴板内容
+        const clipboardText = await navigator.clipboard.readText();
+        // 组合提示词和剪贴板内容
+        chatInput.value = `${selectedCheckboxes[0].value}${clipboardText}`;
+      } catch (err) {
+        // 如果无法访问剪贴板，则只使用提示词
+        chatInput.value = `${selectedCheckboxes[0].value}`;
+      }
+    } else {
+      // 将选中的值连接成字符串
+      chatInput.value = Array.from(selectedCheckboxes).map(cb => cb.value).join('\n');
+    }
+    
     chatInput.focus();
   });
 
@@ -866,7 +879,7 @@ async function updateArticleSummaries(summaries) {
   let processedHTML = marked.parse(markdownContent);
   
   // 处理所有标题，添加对话按钮
-  const titleRegex = /\[(\d+)\] 《([^》]+)》/g;
+  const titleRegex = /\[(\d+)\] 《(.+?)》/g;
   let match;
   let lastIndex = 0;
   
@@ -1019,6 +1032,10 @@ const DEFAULT_PRESET_PROMPTS = [
   {
     name: "科普[x]",
     prompt: "大白话科普一下"
+  },
+  {
+    name: "展开[x]",
+    prompt: "对以下内容请展开说说:\n"
   }
 ];
 
@@ -1057,7 +1074,12 @@ async function loadPresetPrompts() {
     selectAllCheckbox.addEventListener('change', (e) => {
       const checkboxes = itemsContainer.querySelectorAll('input[type="checkbox"]');
       checkboxes.forEach(checkbox => {
-        checkbox.checked = e.target.checked;
+        // 获取复选框的label文本
+        const labelText = checkbox.parentElement?.textContent || '';
+        // 如果文本中不包含[x]，则应用全选状态
+        if (!labelText.includes('[x]')) {
+          checkbox.checked = e.target.checked;
+        }
       });
     });
     
