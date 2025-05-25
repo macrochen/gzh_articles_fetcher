@@ -884,20 +884,32 @@ async function updateArticleSummaries(summaries) {
   // 先转换Markdown为HTML
   let processedHTML = marked.parse(markdownContent);
   
-  // 处理所有标题，添加对话按钮
-  const titleRegex = /\[(\d+)\] 《(.+?)》/g;
-  let match;
-  let lastIndex = 0;
+  // 获取当前选中的文章标题列表
+  const result = await chrome.storage.local.get('articles');
+  const articles = result.articles || [];
   
-  while ((match = titleRegex.exec(markdownContent)) !== null) {
-    const [fullMatch, number, title] = match;
-    const buttonHTML = `<button class="chat-button" style="font-size: 10px; padding: 1px 6px; margin-left: 4px;" data-title="${title.replace(/"/g, '&quot;')}">对话</button>`;
-    
-    // 在标题后面插入按钮，并添加红色样式
-    const matchInHTML = processedHTML.indexOf(fullMatch);
-    if (matchInHTML !== -1) {
-      const styledTitle = `<span style="color: red">${fullMatch}</span>`;
-      processedHTML = processedHTML.slice(0, matchInHTML) + styledTitle + buttonHTML + processedHTML.slice(matchInHTML + fullMatch.length);
+  // 遍历选中的文章标题，在总结内容中查找并添加链接和对话按钮
+  for (const article of articles) {
+    const title = article.title;
+    const url = article.url;
+    // 在处理后的HTML中查找标题
+    const titleIndex = processedHTML.indexOf(title);
+    if (titleIndex !== -1) {
+      // 添加链接和对话按钮（如果还没有添加过）
+      if (!processedHTML.slice(Math.max(0, titleIndex - 100), titleIndex).includes('chat-button')) {
+        const buttonHTML = `<button class="chat-button" style="font-size: 10px; padding: 1px 6px; margin-left: 4px;" data-title="${title.replace(/"/g, '&quot;')}">对话</button>`;
+        
+        // 检查标题后面是否有书名号
+        const endBracketIndex = processedHTML.indexOf('》', titleIndex + title.length);
+        const insertButtonIndex = endBracketIndex !== -1 ? endBracketIndex + 1 : titleIndex + title.length;
+        
+        // 保持原有内容的顺序，只替换标题部分
+        processedHTML = processedHTML.slice(0, titleIndex) + 
+                       `<a href="${url}" target="_blank" title="${title}">${title}</a>` + 
+                       processedHTML.slice(titleIndex + title.length, insertButtonIndex) + 
+                       buttonHTML + 
+                       processedHTML.slice(insertButtonIndex);
+      }
     }
   }
   
