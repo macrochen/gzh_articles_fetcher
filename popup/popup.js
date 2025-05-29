@@ -46,6 +46,22 @@ document.getElementById('fetchCurrent').addEventListener('click', async () => {
             }
           });
           
+          // 显示复制成功提示
+          const notification = document.createElement('div');
+          notification.textContent = '已自动复制文章内容';
+          notification.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 10px 20px;
+            background-color: #07C160;
+            color: white;
+            border-radius: 4px;
+            z-index: 9999;
+          `;
+          document.body.appendChild(notification);
+          setTimeout(() => notification.remove(), 3000);
+          
           return { success: true };
         } catch (error) {
           return { success: false, error: error.message };
@@ -59,7 +75,7 @@ document.getElementById('fetchCurrent').addEventListener('click', async () => {
     document.getElementById('status').textContent = `已采集 ${count} 篇文章`;
     
     // 显示成功消息
-    alert('页面内容已添加到文章列表');
+    // alert('页面内容已添加到文章列表');
   } catch (error) {
     alert('抓取失败：' + error.message);
   }

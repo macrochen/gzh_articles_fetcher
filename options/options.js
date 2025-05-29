@@ -257,7 +257,7 @@ async function sendChatMessage() {
         "temperature": 0.3,
         "topK": 30,
         "topP": 0.7,
-        "maxOutputTokens": 50000
+        // "maxOutputTokens": 50000
       }
     };
 
@@ -834,7 +834,7 @@ async function callBatchSummaryAPI(apiKey, summaryPrompt, selectedArticles) {
       "temperature": 0.3,
       "topK": 30,
       "topP": 0.7,
-      "maxOutputTokens": 500000
+      // "maxOutputTokens": 500000
     }
   
   };

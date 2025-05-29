@@ -50,7 +50,7 @@
     "fetch-current-page": {
       "suggested_key": {
         "default": "Ctrl+Shift+G",
-        "mac": "Command+Shift+G"
+        "mac": "Command+MacCtrl+G"
       },
       "description": "抓取当前页面内容"
     }
