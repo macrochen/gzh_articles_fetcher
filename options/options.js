@@ -415,6 +415,38 @@ function appendMessageToChatHistory(text, sender) {
   return messageElement;
 }
 
+// 导出到本地文件
+async function exportToLocal() {
+  // 从本地存储获取文章列表
+  const result = await chrome.storage.local.get('articles');
+  const articles = result.articles || [];
+  
+  if (articles.length === 0) {
+    alert('没有可导出的文章！');
+    return;
+  }
+  
+  // 将文章数据转换为JSON字符串
+  const jsonStr = JSON.stringify(articles, null, 2);
+  
+  // 创建Blob对象
+  const blob = new Blob([jsonStr], { type: 'application/json' });
+  
+  // 创建下载链接
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `articles_${new Date().toISOString().split('T')[0]}.json`;
+  
+  // 触发下载
+  document.body.appendChild(a);
+  a.click();
+  
+  // 清理
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
 // 导出到 Google Drive (保持大部分不变，但确保文章数据是最新的)
 async function exportToDrive() {
   try {
@@ -581,6 +613,7 @@ document.addEventListener('DOMContentLoaded', () => {
   loadArticles(); // 然后加载文章，这样可以立即尝试生成总结
   document.getElementById('saveSettings').addEventListener('click', saveSettings);
   document.getElementById('exportToDrive').addEventListener('click', exportToDrive);
+  document.getElementById('exportToLocal').addEventListener('click', exportToLocal);
   document.getElementById('sendChatMessage').addEventListener('click', sendChatMessage);
   
   document.getElementById('scrollToOperation').addEventListener('click', () => {
@@ -708,7 +741,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const chatInput = document.getElementById('chatInput');
     
     // 如果选中的是展开[x]复选框
-    if (selectedCheckboxes.length === 1 && selectedCheckboxes[0].id === "preset-展开[x]" ) {
+    if (selectedCheckboxes.length === 1 && selectedCheckboxes[0].id.endsWith("[x]") ) {
       try {
         // 读取剪贴板内容
         const clipboardText = await navigator.clipboard.readText();
