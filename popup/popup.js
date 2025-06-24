@@ -42,7 +42,6 @@ document.getElementById('fetchCurrent').addEventListener('click', async () => {
               title: article.title.trim(),
               textContent: article.textContent.trim(),
               url: window.location.href,
-              timestamp: new Date().toISOString()
             }
           });
           
