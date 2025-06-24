@@ -26,11 +26,12 @@
     ]
   },
   "background": {
-    "service_worker": "background.js"
+    "service_worker": "background.js",
+    "type": "module"
   },
   "content_scripts": [{
     "matches": ["*://mp.weixin.qq.com/*"],
-    "js": ["Readability.js", "content.js"]
+    "js": ["Readability.js", "utils.js", "content.js"]
   }],
   "action": {
     "default_popup": "popup/popup.html",

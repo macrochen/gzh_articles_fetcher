@@ -8,11 +8,11 @@ function extractArticleInfo() {
       clearInterval(checkContent);
       
       try {
-        // 克隆文档以供 Readability 处理
+        // 克隆文档以供解析处理
         const documentClone = document.cloneNode(true);
         
-        // 使用 Readability 解析内容
-        const article = new Readability(documentClone).parse();
+        // 使用专用的公众号文章解析函数
+        const article = parseWeChatArticle(documentClone);
         
         if (!article) {
           throw new Error('无法提取页面内容');
