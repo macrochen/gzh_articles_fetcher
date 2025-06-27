@@ -5,11 +5,11 @@ let chatHistory = [];
 const DEFAULT_PRESET_PROMPTS = [
   {
     name: "科普[x]",
-    prompt: "大白话科普一下:\n[x]"
+    prompt: "大白话科普一下:\n"
   },
   {
     name: "展开[x]",
-    prompt: "对以下内容请用大白话展开说说:\n[x]"
+    prompt: "对以下内容请用大白话展开说说:\n"
   },
   {
     name: "故事案例",
@@ -141,28 +141,33 @@ const DEFAULT_PRESET_PROMPTS = [
 
 
 const DEFAULT_SUMMARY_PROMPT = `# 任务目标
-你需要扮演一个信息处理和总结助手。请根据我提供的JSON格式的文档，对每篇文章进行处理。
+你需要扮演一个**既能高效处理信息，又会绘声绘色讲故事的总结助手**。请根据我提供的JSON格式的文档，对每篇文章进行处理，用生动有趣、引人入胜的方式完成总结。
 
 # 输入格式
 我的文档结构是 JSON 格式，每篇文章是一个 JSON 对象，包含 \`title\` (文章标题)、\`url\` (文章链接) 和 \`content\` (文章主要内容) 这三个字段。你需要按顺序处理JSON中的每篇文章。
 
 # 主要任务：文章总结与处理
 
-请用简体中文大白话总结给定的内容。对于需要总结的文章（非软文、非内容无法总结的情况），你的总结应包含以下结构化信息，并确保整体风格口语化、忠于原文：
+请用简体中文大白话总结给定的内容。对于需要总结的文章（非软文、非内容无法总结的情况），你的总结应包含以下结构化信息：
 
-1.  **主要内容**：简明扼要地概括文章主要讲述的是什么事情、哪个领域或哪个主题。
-2.  **核心观点**：清晰提炼文章最核心的论点、看法或结论，让人一眼看懂文章主要想表达什么。
-3.  **关键细节**：列出支撑核心观点的关键信息点，如重要数据、人物观点、事件要素、具体案例的核心内容等。如果有多条，请分点列出。
-4.  **深度解读**：基于原文信息，尝试点出观点背后的逻辑、潜在的假设、可能的引申、与其他信息的联系或对事物更深层次的理解。避免主观臆断和过度引申。
+1.  **推荐指数**：基于文章的信息量、启发性和阅读价值，给出一个1-5星的推荐评级（用⭐️表示），并附上一句精炼、口语化的推荐语。
+2.  **这篇讲了啥？**：用几句通俗易懂的大白话，清晰地概括出这篇文章最核心的观点和主要内容。这部分要足够精炼，让人能快速抓住文章的精华，同时又能提起阅读兴趣。如果原文标题是个问题，就在这里直接、明确地给出答案。
+3.  **关键细节 (故事化讲述)**：
+    * 如果文章包含具体的故事、案例或情景，**请在这里生动地讲述它们**。你需要把它们讲得活灵活现、有画面感，就像你亲身经历过，或是我们正坐在炉边听你娓娓道来一样，而不是枯燥地罗列要点。
+    * 如果主要是数据或观点，也请用易于理解的方式，结合比喻或场景来呈现。
+    * 如果有多条，请分点讲述。
+4.  **深度解读 (朋友般的启发)**：
+    * 结合前面的故事或细节，提炼出它们**带给我们的启发或道理**。
+    * 请像朋友之间真心分享感悟一样，用大白话，说得透彻又引人深思，不要太说教。这部分需要点出观点背后的逻辑、潜在的假设或对事物更深层次的理解。
 
 **其他要求：**
 
-5.  **总结风格**：整体总结要像跟朋友聊天一样，自然口语化，避免生硬的书面语。
+5.  **总结风格**：整体总结要像一个**绘声绘色的说书人**，用跟朋友聊天的方式，把故事和观点讲得生动有趣、娓娓道来。语言要口语化，有亲和力，避免生硬的书面语。
 6.  **忠于原文**：所有部分的总结都必须严格忠于原文内容，不允许虚构或歪曲。
-7.  **类型适配**：针对不同类型的文章（比如财经、健康、生活），在“核心观点”、“关键细节”和“深度解读”时，侧重点可以稍微调整（财经侧重数据趋势，健康侧重科学建议等），但都得保证通俗易懂和上述结构。
-8.  **问句标题处理**：如果文章标题是疑问句（例如“未来十年，中国零售渠道会有哪些变化？”），请在“核心观点”部分直接、清晰地回答这个问题，并结合“主要内容”、“关键细节”和“深度解读”进行支撑。
-9.  **软文识别与处理**：如果识别出文章主要目的是推广产品、课程或服务（即软文），请使用以下固定格式进行标注：\`[软文识别] 此内容可能为推广信息，核心价值较低。\` 无需进行结构化总结。
-10. **内容无法总结处理**：如果文章 \`\` 字段为空、内容完全是乱码、或因内容过短/信息量过低而无法进行有意义的总结，请进行标注，例如：\`[内容无法总结] 原文内容不足或无法有效解析。\` 无需进行结构化总结。
+7.  **类型适配**：针对不同类型的文章（比如财经、健康、生活），在“关键细节”和“深度解读”时，侧重点可以稍微调整（财经侧重数据趋势故事化，健康侧重科学建议场景化），但都得保证通俗易懂和上述结构。
+8.  **评分标准**：推荐指数应客观反映文章质量。例如：1-2星（价值较低），3星（中规中矩），4星（很有价值，推荐阅读），5星（必读精品）。评分仅适用于可总结的普通文章。
+9.  **软文识别与处理**：如果识别出文章主要目的是推广产品、课程或服务（即软文），请使用以下固定格式进行标注，**无需评分**：\`[软文识别] 此内容可能为推广信息，核心价值较低。\`
+10. **内容无法总结处理**：如果文章 \`content\` 字段为空、内容完全是乱码、或因内容过短/信息量过低而无法进行有意义的总结，请使用以下固定格式进行标注，**无需评分**：\`[内容无法总结] 原文内容不足或无法有效解析。\`
 11. **编号**：为每篇文章分配一个从1开始的顺序编号，方便后续提问。
 
 # 输出格式示例
@@ -171,16 +176,16 @@ const DEFAULT_SUMMARY_PROMPT = `# 任务目标
 
 [1] 《文章标题示例》
 
-**主要内容**：[这里概括文章主要讲述的对象和范围]
+**推荐指数**：⭐️⭐️⭐️⭐️☆ (很值得一读，干货满满，能带来不少启发。)
 
-**核心观点**：[这里提炼文章最核心的论点或看法；若是问句标题，则在此处回答]
+**这篇讲了啥？**：[这里用几句大白话，清晰概括文章的核心观点和主要内容。]
 
 **关键细节**：
-- [关键细节1，例如：具体数据、案例要素]
-- [关键细节2，例如：重要人物的观点]
+- [这里像讲故事一样，生动地讲述第一个关键案例或细节]
+- [这里像讲故事一样，生动地讲述第二个关键案例或细节]
 - （更多细节，视文章内容而定）
 
-**深度解读**：[这里提供基于原文的深层分析、联系或引申]
+**深度解读**：[这里像朋友分享感悟一样，提炼出故事背后的启发和道理]
 
 
 对于软文：
@@ -193,8 +198,6 @@ const DEFAULT_SUMMARY_PROMPT = `# 任务目标
 
 [3] 《内容无法总结的文章标题》
 [内容无法总结] 原文内容不足或无法有效解析。
-
-
 `;
 
 // 函数定义区域
@@ -493,43 +496,7 @@ function appendMessageToChatHistory(text, sender) {
 
   const senderContent = document.createElement('div');
   senderContent.classList.add('sender-content');
-  
-  // 为AI消息添加复制按钮
-  if (sender === 'gemini') {
-    const headerContainer = document.createElement('div');
-    headerContainer.style.display = 'flex';
-    headerContainer.style.justifyContent = 'space-between';
-    headerContainer.style.alignItems = 'center';
-    
-    const senderLabel = document.createElement('strong');
-    senderLabel.textContent = 'AI：';
-    
-    const copyButton = document.createElement('button');
-    copyButton.textContent = '复制';
-    copyButton.style.fontSize = '12px';
-    copyButton.style.padding = '2px 8px';
-    copyButton.style.marginLeft = '8px';
-    
-    // 存储原始的 Markdown 文本，用于复制
-    messageElement.dataset.markdownContent = text;
-    
-    copyButton.addEventListener('click', () => {
-      // 使用存储的原始 Markdown 文本进行复制
-      navigator.clipboard.writeText(messageElement.dataset.markdownContent).then(() => {
-        const originalText = copyButton.textContent;
-        copyButton.textContent = '已复制！';
-        setTimeout(() => {
-          copyButton.textContent = originalText;
-        }, 2000);
-      });
-    });
-    
-    headerContainer.appendChild(senderLabel);
-    headerContainer.appendChild(copyButton);
-    senderContent.appendChild(headerContainer);
-  } else {
-    senderContent.innerHTML = "<strong>" + senderLabel + "</strong>：";
-  }
+  senderContent.innerHTML = "<strong>" + senderLabel + "</strong>："; // 直接设置发送者标签
   
   messageElement.appendChild(senderContent);
 
@@ -538,6 +505,59 @@ function appendMessageToChatHistory(text, sender) {
   messageContent.innerHTML = marked.parse(text);
   messageElement.appendChild(messageContent);
 
+  // 为AI消息添加复制按钮
+  if (sender === 'gemini') {
+    const copyMarkdownButton = document.createElement('button');
+    copyMarkdownButton.innerHTML = '<img src="../assets/icons/copy.svg" alt="复制Markdown" style="vertical-align: middle;">';
+    copyMarkdownButton.title = '复制Markdown';
+    copyMarkdownButton.style.cssText = 'background: none; border: none; cursor: pointer; padding: 2px 8px; margin-left: 8px;';
+    
+    const copyPlainButton = document.createElement('button');
+    copyPlainButton.innerHTML = '<img src="../assets/icons/clipboard.svg" alt="复制纯文本" style="vertical-align: middle;">';
+    copyPlainButton.title = '复制纯文本';
+    copyPlainButton.style.cssText = 'background: none; border: none; cursor: pointer; padding: 2px 8px; margin-left: 8px;';
+    
+    // 存储原始的 Markdown 文本，用于复制
+    messageElement.dataset.markdownContent = text;
+    
+    copyMarkdownButton.addEventListener('click', () => {
+      // 使用存储的原始 Markdown 文本进行复制
+      navigator.clipboard.writeText(messageElement.dataset.markdownContent).then(() => {
+        const originalHtml = copyMarkdownButton.innerHTML;
+        copyMarkdownButton.innerHTML = '<span style="color: #008000;">已复制！</span>';
+        setTimeout(() => {
+          copyMarkdownButton.innerHTML = '<img src="../assets/icons/copy.svg" alt="复制Markdown" style="vertical-align: middle;">';
+        }, 2000);
+      });
+    });
+
+    copyPlainButton.addEventListener('click', () => {
+      // 提取标题和纯文本内容
+      const title = currentChatArticle ? currentChatArticle.title : '';
+      const tempDiv = document.createElement('div');
+      // 使用存储的原始 Markdown 文本进行解析
+      tempDiv.innerHTML = marked.parse(messageElement.dataset.markdownContent);
+      let plainText = title ? `${title}\n${currentChatArticle.url}\n\n${tempDiv.textContent}` : tempDiv.textContent;
+      plainText = plainText.replace(/▌/g, '');
+      
+      navigator.clipboard.writeText(plainText).then(() => {
+        const originalHtml = copyPlainButton.innerHTML;
+        copyPlainButton.innerHTML = '<span style="color: #008000;">已复制！</span>';
+        setTimeout(() => {
+          copyPlainButton.innerHTML = '<img src="../assets/icons/clipboard.svg" alt="复制纯文本" style="vertical-align: middle;">';
+        }, 2000);
+      });
+    });
+    
+    const buttonContainer = document.createElement('div');
+    buttonContainer.style.display = 'flex';
+    buttonContainer.style.justifyContent = 'flex-end'; // 将按钮容器推到右边
+    buttonContainer.style.marginTop = '10px'; // 在消息内容和按钮之间添加一些间距
+    buttonContainer.appendChild(copyMarkdownButton);
+    buttonContainer.appendChild(copyPlainButton);
+    messageElement.appendChild(buttonContainer); // 将按钮容器添加到消息元素的末尾
+  }
+  
   chatHistoryElement.appendChild(messageElement);
   
   if (sender === 'gemini') {
@@ -1187,10 +1207,6 @@ async function loadPresetPrompts() {
   presetSelectors.forEach(container => {
     container.innerHTML = ''; // 清空容器
   
-    // 创建标题
-    const title = document.createElement('h4');
-    title.textContent = '选择预设提示词：';
-    container.appendChild(title);
   
     const itemsContainer = document.createElement('div');
     itemsContainer.className = 'preset-items-container';
