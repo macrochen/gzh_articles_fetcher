@@ -775,7 +775,18 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('scrollToOperation').addEventListener('click', () => {
     const settingsSection = document.querySelector('.actions');
     if (settingsSection) {
-      settingsSection.scrollIntoView({ behavior: 'smooth' });
+      const elementRect = settingsSection.getBoundingClientRect();
+      const absoluteElementTop = elementRect.top + window.scrollY;
+      const viewportCenter = window.innerHeight / 2;
+      const offset = viewportCenter - (elementRect.height / 2) - (window.innerHeight * 0.25); // Increased adjustment for more visible "above center"
+      const sidebar = document.querySelector('.sidebar');
+        if (sidebar) {
+          const targetScrollTop = elementRect.top - sidebar.getBoundingClientRect().top + sidebar.scrollTop - offset;
+          sidebar.scrollTo({
+            top: targetScrollTop,
+            behavior: 'smooth'
+          });
+        }
     }
   });
 
