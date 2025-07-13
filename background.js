@@ -29,16 +29,16 @@ async function saveArticle(article) {
     // 检查文章是否已存在（基于标题去重）
     if (!articles.some(a => a.title === article.title)) {
       // 如果有 API Key 和提示词，立即生成总结
-      if (apiKey && summaryPrompt && article.textContent) {
-        try {
-          article.summary = ""; // todo await summarizeTextWithGemini(apiKey, article.textContent, summaryPrompt);
-        } catch (error) {
-          console.error('生成总结失败:', error);
-          article.summary = '总结失败: ' + error.message;
-        }
-      } else {
-        article.summary = '无总结 (请配置API Key和提示词)';
-      }
+      // if (apiKey && summaryPrompt && article.textContent) {
+      //   try {
+      //     article.summary = ""; // todo await summarizeTextWithGemini(apiKey, article.textContent, summaryPrompt);
+      //   } catch (error) {
+      //     console.error('生成总结失败:', error);
+      //     article.summary = '总结失败: ' + error.message;
+      //   }
+      // } else {
+      //   article.summary = '无总结 (请配置API Key和提示词)';
+      // }
       
       articles.push(article);
       await chrome.storage.local.set({ articles });

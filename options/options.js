@@ -572,32 +572,39 @@ function appendMessageToChatHistory(text, sender) {
 }
 
 // 导出到本地文件
-async function exportToLocal() {
-  // 从本地存储获取文章列表
+async function exportSelectedToLocal() {
+  const checkboxes = document.querySelectorAll('.article-checkbox:checked');
+  if (checkboxes.length === 0) {
+    alert('请至少选择一篇文章');
+    return;
+  }
+
   const result = await chrome.storage.local.get('articles');
-  const articles = result.articles || [];
-  
-  if (articles.length === 0) {
+  const allArticles = result.articles || [];
+  const selectedTitles = Array.from(checkboxes).map(cb => cb.dataset.title);
+  const selectedArticles = allArticles.filter(article => selectedTitles.includes(article.title));
+
+  if (selectedArticles.length === 0) {
     alert('没有可导出的文章！');
     return;
   }
-  
+
   // 将文章数据转换为JSON字符串
-  const jsonStr = JSON.stringify(articles, null, 2);
-  
+  const jsonStr = JSON.stringify(selectedArticles, null, 2);
+
   // 创建Blob对象
   const blob = new Blob([jsonStr], { type: 'application/json' });
-  
+
   // 创建下载链接
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
   a.download = `articles_${new Date().toISOString().split('T')[0]}.json`;
-  
+
   // 触发下载
   document.body.appendChild(a);
   a.click();
-  
+
   // 清理
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
@@ -754,9 +761,9 @@ function createMultipartBody(metadata, content) {
 }
 
 // 绑定保存设置按钮事件
-document.getElementById('saveSettings').addEventListener('click', saveSettings);
+// document.getElementById('saveSettings').addEventListener('click', saveSettings);
 // 绑定导出按钮事件
-document.getElementById('exportToDrive').addEventListener('click', exportToDrive);
+// document.getElementById('exportToDrive').addEventListener('click', exportToDrive);
 
 
 function toggleSettings(header) {
@@ -768,8 +775,8 @@ document.addEventListener('DOMContentLoaded', () => {
   loadSettings(); // 先加载设置
   loadArticles(); // 然后加载文章，这样可以立即尝试生成总结
   document.getElementById('saveSettings').addEventListener('click', saveSettings);
-  document.getElementById('exportToDrive').addEventListener('click', exportToDrive);
-  document.getElementById('exportToLocal').addEventListener('click', exportToLocal);
+  // document.getElementById('exportToDrive').addEventListener('click', exportToDrive);
+  document.getElementById('exportSelectedToLocal').addEventListener('click', exportSelectedToLocal);
   document.getElementById('sendChatMessage').addEventListener('click', sendChatMessage);
   
   document.getElementById('scrollToOperation').addEventListener('click', () => {
@@ -781,11 +788,12 @@ document.addEventListener('DOMContentLoaded', () => {
       const offset = viewportCenter - (elementRect.height / 2) - (window.innerHeight * 0.25); // Increased adjustment for more visible "above center"
       const sidebar = document.querySelector('.sidebar');
         if (sidebar) {
+          const offset = (sidebar.clientHeight - elementRect.height) / 2;
           const targetScrollTop = elementRect.top - sidebar.getBoundingClientRect().top + sidebar.scrollTop - offset;
-          sidebar.scrollTo({
-            top: targetScrollTop,
-            behavior: 'smooth'
-          });
+            sidebar.scrollTo({
+              top: targetScrollTop,
+              behavior: 'smooth'
+            });
         }
     }
   });
@@ -820,20 +828,25 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
   
-  // 添加选择最后5篇文章的功能
-  document.getElementById('selectLastFive').addEventListener('click', function() {
+  // 添加选择最近N篇文章的功能
+  document.getElementById('selectLastNButton').addEventListener('click', function() {
     // 先取消所有选中状态
     document.querySelectorAll('.article-checkbox').forEach(checkbox => {
       checkbox.checked = false;
     });
-    
+
     // 获取所有文章的复选框
     const checkboxes = Array.from(document.querySelectorAll('.article-checkbox'));
-    
-    // 选中最后5篇文章
-    checkboxes.slice(-5).forEach(checkbox => {
-      checkbox.checked = true;
-    });
+
+    // 获取用户输入的数量
+    const n = parseInt(document.getElementById('selectLastNInput').value, 10) || 0;
+
+    // 选中最后N篇文章
+    if (n > 0) {
+      checkboxes.slice(-n).forEach(checkbox => {
+        checkbox.checked = true;
+      });
+    }
   });
 
   document.getElementById('copyToClipboard').addEventListener('click', async function() {
