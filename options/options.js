@@ -505,6 +505,19 @@ function appendMessageToChatHistory(text, sender) {
   messageContent.innerHTML = marked.parse(text);
   messageElement.appendChild(messageContent);
 
+  // 为用户消息添加展开/收起按钮
+  if (sender === 'user' && text.length > 100) { // 仅当消息长度超过100时才添加按钮
+    const toggleButton = document.createElement('button');
+    toggleButton.textContent = '展开';
+    toggleButton.classList.add('toggle-button');
+    toggleButton.addEventListener('click', () => {
+      const content = messageElement.querySelector('.message-content');
+      content.classList.toggle('expanded');
+      toggleButton.textContent = content.classList.contains('expanded') ? '收起' : '展开';
+    });
+    messageElement.appendChild(toggleButton);
+  }
+
   // 为AI消息添加复制按钮
   if (sender === 'gemini') {
     const copyMarkdownButton = document.createElement('button');

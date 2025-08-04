@@ -348,6 +348,40 @@ button:hover {
   line-height: 1.5;
 }
 
+/* For user messages, make children inline to sit on one line */
+.chat-message.user > .sender-content,
+.chat-message.user > .message-content,
+.chat-message.user > .toggle-button {
+  display: inline-block;
+  vertical-align: top;
+}
+
+/* User message content folding */
+.chat-message.user .message-content {
+  max-width: 75%; /* Adjust this percentage as needed */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.chat-message.user .message-content.expanded {
+  display: block; /* On expand, make it a block to take full width */
+  white-space: normal;
+  max-width: 100%;
+  margin-top: 5px;
+}
+
+.toggle-button {
+  background: none;
+  border: none;
+  color: #007bff;
+  cursor: pointer;
+  padding: 0;
+  margin-left: 10px;
+  font-size: 12px;
+}
+
+
 /* 消息内容中的代码块样式 */
 .message-content pre {
   background-color: #f5f5f5;
