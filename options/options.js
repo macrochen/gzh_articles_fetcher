@@ -96,7 +96,7 @@ const DEFAULT_PRESET_PROMPTS = [
   {
     name: "故事高手",
     prompt: `请你像一个绘声绘色的讲故事的人一样，用大白话给我总结这篇文章。
-文章里提到了哪些具体的故事或案例？ 请你把它们讲得活灵活现、有画面感，就像你亲身经历过一样，又像是我们坐在炉边听你娓娓道来。不用枯燥地罗列，要让听的人觉得这些事很有趣，忍不住想听下去。
+文章里提到了哪些具体的故事或案例？ 请你把它们讲得活灵活现、有画面感，就像你亲身经历过一样，又像是我们坐在炉边听你娓娓道来一样，而不是枯燥地罗列，要让听的人觉得这些事很有趣，忍不住想听下去。
 这些故事或案例给我们带来了什么启发，或者教会了我们什么道理？ 同样用大白话，说得透彻又引人深思，不要太说教，就像朋友之间真心分享感悟一样。`
   },
   {
@@ -198,7 +198,7 @@ const DEFAULT_SUMMARY_PROMPT = `# 任务目标
 
 [3] 《内容无法总结的文章标题》
 [内容无法总结] 原文内容不足或无法有效解析。
-`;
+`
 
 // 函数定义区域
 // (确保 saveSettings 和 loadSettings 在这里定义)
@@ -263,12 +263,12 @@ async function loadArticles() {
   listElement.innerHTML = articles.map(article => `
     <div class="article-item collapsed">
       <div class="article-header">
-        <input type="checkbox" class="article-checkbox" data-title="${article.title.replace(/"/g, '&quot;')}">
+        <input type="checkbox" class="article-checkbox" data-title="${article.title.replaceAll('"', '&quot;')}">
         <div class="title-container">
           <h3 class="article-title">
             <a href="${article.url}" target="_blank" title="${article.title}">${article.title}</a>
           </h3>
-          <button class="chat-button" data-title="${article.title.replace(/"/g, '&quot;')}">对话</button>
+          <button class="chat-button" data-title="${article.title.replaceAll('"', '&quot;')}">对话</button>
         </div>
       </div>
     </div>
@@ -278,7 +278,7 @@ async function loadArticles() {
   const dropdown = document.getElementById('articleDropdown');
   dropdown.innerHTML = '<option value="">-- 选择文章开始对话 --</option>' + 
   articles.map(article => 
-      `<option value="${article.title.replace(/"/g, '&quot;')}">${article.title}</option>`
+      `<option value="${article.title.replaceAll('"', '&quot;')}">${article.title}</option>`
     ).join('');
   
   // 添加下拉列表事件监听
@@ -790,6 +790,8 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('saveSettings').addEventListener('click', saveSettings);
   // document.getElementById('exportToDrive').addEventListener('click', exportToDrive);
   document.getElementById('exportSelectedToLocal').addEventListener('click', exportSelectedToLocal);
+  document.getElementById('importFromLocal').addEventListener('click', () => document.getElementById('importFileInput').click());
+  document.getElementById('importFileInput').addEventListener('change', importFromLocal);
   document.getElementById('sendChatMessage').addEventListener('click', sendChatMessage);
   
   document.getElementById('scrollToOperation').addEventListener('click', () => {
@@ -1009,7 +1011,7 @@ async function deleteSelectedArticles() {
   const dropdown = document.getElementById('articleDropdown');
   dropdown.innerHTML = '<option value="">-- 选择文章开始对话 --</option>' + 
     articles.map(article => 
-      `<option value="${article.title.replace(/"/g, '&quot;')}">${article.title}</option>`
+      `<option value="${article.title.replaceAll('"', '&quot;')}">${article.title}</option>`
     ).join('');
   
   // 如果当前正在对话的文章被删除，清理对话区域
@@ -1125,7 +1127,7 @@ async function updateArticleSummaries(summaries) {
     if (titleIndex !== -1) {
       // 添加链接和对话按钮（如果还没有添加过）
       if (!processedHTML.slice(Math.max(0, titleIndex - 100), titleIndex).includes('chat-button')) {
-        const buttonHTML = `<button class="chat-button" style="font-size: 10px; padding: 1px 6px; margin-left: 4px;" data-title="${title.replace(/"/g, '&quot;')}">对话</button>`;
+        const buttonHTML = `<button class="chat-button" style="font-size: 10px; padding: 1px 6px; margin-left: 4px;" data-title="${article.title.replaceAll('"', '&quot;')}">对话</button>`;
         
         // 检查标题后面是否有书名号
         const endBracketIndex = processedHTML.indexOf('》', titleIndex + title.length);
@@ -1190,7 +1192,7 @@ async function summarizeSelectedArticles() {
     // 1.  输出必须是严格有效的JSON格式，结构与输入完全一致。
     // 2.  每篇文章的总结必须包含在 "content" 字段中。
     // 3.  总结语言为简体中文，使用口语化表达。
-    // 4.  保留关键细节，总结长度控制在原文的 30% 以内。
+    // 4.  保留关键细节，总结长度控制在原文の 30% 以内。
     // 5.  对于软文，直接在 "content" 字段中标记为 "软文"。
 
     // 示例输入格式：
@@ -1469,4 +1471,54 @@ function editPresetPrompts() {
     // 取消编辑
     document.getElementById('cancelEdit').addEventListener('click', closeDialog);
   });
+}
+
+// 监听来自 background 的消息
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.type === 'ARTICLES_UPDATED') {
+    loadArticles();
+  }
+});
+
+// 导入本地文件
+async function importFromLocal(event) {
+  const file = event.target.files[0];
+  if (!file) {
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onload = async (e) => {
+    try {
+      const importedData = JSON.parse(e.target.result);
+      const importedArticles = importedData.articles || importedData;
+
+      if (!Array.isArray(importedArticles)) {
+        throw new Error("无效的文件格式：JSON不是一个数组。");
+      }
+
+      const result = await chrome.storage.local.get('articles');
+      let existingArticles = result.articles || [];
+      const existingTitles = new Set(existingArticles.map(a => a.title));
+
+      const newArticles = importedArticles.filter(importedArticle =>
+        importedArticle.title && !existingTitles.has(importedArticle.title)
+      );
+
+      if (newArticles.length > 0) {
+        const updatedArticles = [...existingArticles, ...newArticles];
+        await chrome.storage.local.set({ articles: updatedArticles });
+        loadArticles();
+        alert(`${newArticles.length}篇文章导入成功！`);
+      } else {
+        alert('没有新文章可导入，可能文章已存在或文件格式不正确。');
+      }
+    } catch (error) {
+      alert(`导入失败: ${error.message}`);
+      console.error('导入错误:', error);
+    } finally {
+        event.target.value = '';
+    }
+  };
+  reader.readAsText(file);
 }
