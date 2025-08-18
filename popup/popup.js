@@ -20,6 +20,12 @@ document.getElementById('fetchCurrent').addEventListener('click', async () => {
       files: ['Readability.js']
     });
     
+    // 注入 utils.js
+    await chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      files: ['utils.js']
+    });
+    
     // 注入并执行内容抓取函数
     await chrome.scripting.executeScript({
       target: { tabId: tab.id },
