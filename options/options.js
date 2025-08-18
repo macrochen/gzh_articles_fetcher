@@ -247,6 +247,11 @@ async function loadArticles() {
   const apiKey = result.geminiApiKey;
   const summaryPrompt = result.summaryPrompt;
   const listElement = document.getElementById('articlesList');
+  const listTitleElement = document.getElementById('articles-list-title');
+
+  if (listTitleElement) {
+    listTitleElement.textContent = `文章列表 (${articles.length})`;
+  }
 
   if (articles.length === 0) {
     listElement.innerHTML = '<p>暂无文章，请先通过插件抓取。</p>';
@@ -984,6 +989,19 @@ document.addEventListener('DOMContentLoaded', () => {
   
 });
 
+function scrollToActionsCenter() {
+  const actionsSection = document.querySelector('.actions');
+  const sidebar = document.querySelector('.sidebar');
+  if (actionsSection && sidebar) {
+    const offset = (sidebar.clientHeight - actionsSection.clientHeight) / 2;
+    
+    sidebar.scrollTo({
+      top: actionsSection.offsetTop - sidebar.offsetTop - offset,
+      behavior: 'smooth'
+    });
+  }
+}
+
 async function deleteSelectedArticles() {
   const checkboxes = document.querySelectorAll('.article-checkbox:checked');
   if (checkboxes.length === 0) {
@@ -1020,7 +1038,10 @@ async function deleteSelectedArticles() {
   }
   
   // 重新加载文章列表
-  loadArticles();
+  await loadArticles();
+
+  // After reloading, scroll the actions area to the center
+  setTimeout(scrollToActionsCenter, 100);
 }
 
 // 创建加载提示
@@ -1120,23 +1141,36 @@ async function updateArticleSummaries(summaries) {
   
   // 遍历选中的文章标题，在总结内容中查找并添加链接和对话按钮
   for (const article of articles) {
-    const title = article.title;
+    const fullTitle = article.title;
     const url = article.url;
-    // 在处理后的HTML中查找标题
-    const titleIndex = processedHTML.indexOf(title);
+    // 兼容总结服务可能只返回核心标题的情况，提取最后一个'-'之后的部分作为核心标题
+    const coreTitle = fullTitle.substring(fullTitle.lastIndexOf('-') + 1).trim();
+
+    // 优先尝试匹配完整标题，如果找不到，再尝试匹配核心标题
+    let titleToSearch = fullTitle;
+    let titleLength = fullTitle.length;
+    let titleIndex = processedHTML.indexOf(fullTitle);
+
+    if (titleIndex === -1 && coreTitle) {
+      titleToSearch = coreTitle;
+      titleLength = coreTitle.length;
+      titleIndex = processedHTML.indexOf(coreTitle);
+    }
+
     if (titleIndex !== -1) {
       // 添加链接和对话按钮（如果还没有添加过）
-      if (!processedHTML.slice(Math.max(0, titleIndex - 100), titleIndex).includes('chat-button')) {
-        const buttonHTML = `<button class="chat-button" style="font-size: 10px; padding: 1px 6px; margin-left: 4px;" data-title="${article.title.replaceAll('"', '&quot;')}">对话</button>`;
+      // 增加检查范围，防止误判
+      if (!processedHTML.slice(Math.max(0, titleIndex - 150), titleIndex).includes('chat-button')) {
+        const buttonHTML = `<button class="chat-button" style="font-size: 10px; padding: 1px 6px; margin-left: 4px;" data-title="${fullTitle.replaceAll('"', '&quot;')}">对话</button>`;
         
         // 检查标题后面是否有书名号
-        const endBracketIndex = processedHTML.indexOf('》', titleIndex + title.length);
-        const insertButtonIndex = endBracketIndex !== -1 ? endBracketIndex + 1 : titleIndex + title.length;
+        const endBracketIndex = processedHTML.indexOf('》', titleIndex + titleLength);
+        const insertButtonIndex = endBracketIndex !== -1 ? endBracketIndex + 1 : titleIndex + titleLength;
         
-        // 保持原有内容的顺序，只替换标题部分
+        // 保持原有内容的顺序，用完整标题创建链接，替换掉原文中的标题（无论是完整版还是核心版）
         processedHTML = processedHTML.slice(0, titleIndex) + 
-                       `<a href="${url}" target="_blank" title="${title}">${title}</a>` + 
-                       processedHTML.slice(titleIndex + title.length, insertButtonIndex) + 
+                       `<a href="${url}" target="_blank" title="${fullTitle}">${fullTitle}</a>` + 
+                       processedHTML.slice(titleIndex + titleLength, insertButtonIndex) + 
                        buttonHTML + 
                        processedHTML.slice(insertButtonIndex);
       }
