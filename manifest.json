@@ -1,59 +1,44 @@
 {
   "manifest_version": 3,
-  "name": "公众号文章采集器",
+  "name": "公众号文章抓取及对话",
   "version": "1.0",
-  "description": "自动采集微信公众号文章并支持导出到 Google Drive",
+  "description": "抓取公众号文章，并与文章内容进行对话",
   "permissions": [
-    "tabs",
+    "activeTab",
     "storage",
-    "identity",
     "scripting",
-    "clipboardWrite",
-    "activeTab"
+    "identity"
   ],
-  "content_security_policy": {
-    "extension_pages": "script-src 'self'; object-src 'self'; connect-src https://generativelanguage.googleapis.com https://www.googleapis.com;"
-  },
   "host_permissions": [
-    "https://mp.weixin.qq.com/*",
-    "https://generativelanguage.googleapis.com/*",
-    "https://www.googleapis.com/*"
+    "<all_urls>"
   ],
-  "oauth2": {
-    "client_id": "43547905274-7slrhl64qd7ou9nl4brp2j366ubc0fhk.apps.googleusercontent.com",
-    "scopes": [
-      "https://www.googleapis.com/auth/drive"
-    ]
-  },
   "background": {
-    "service_worker": "background.js",
-    "type": "module"
+    "service_worker": "background.js"
   },
-  "content_scripts": [{
-    "matches": ["*://mp.weixin.qq.com/*"],
-    "js": ["Readability.js", "utils.js", "content.js"]
-  }],
   "action": {
     "default_popup": "popup/popup.html",
-    "default_icon": {
-      "16": "assets/icons/icon.png",
-      "48": "assets/icons/icon.png",
-      "128": "assets/icons/icon.png"
-    }
+    "default_icon": "assets/icons/icon.png"
   },
   "options_page": "options/options.html",
-  "icons": {
-    "16": "assets/icons/icon.png",
-    "48": "assets/icons/icon.png",
-    "128": "assets/icons/icon.png"
-  },
   "commands": {
     "fetch-current-page": {
       "suggested_key": {
-        "default": "Ctrl+Shift+G",
-        "mac": "Command+MacCtrl+G"
+        "default": "Ctrl+Shift+F",
+        "mac": "MacCtrl+Shift+F"
       },
       "description": "抓取当前页面内容"
     }
-  }
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"]
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["Readability.js", "utils.js"],
+      "matches": ["<all_urls>"]
+    }
+  ]
 }

@@ -205,26 +205,29 @@ const DEFAULT_SUMMARY_PROMPT = `# 任务目标
 async function saveSettings() {
   const apiKey = document.getElementById('geminiApiKey').value;
   const prompt = document.getElementById('summaryPrompt').value;
+  const targetSites = document.getElementById('targetSites').value;
 
-  if (apiKey) {
-    await chrome.storage.local.set({ geminiApiKey: apiKey });
-  }
-  if (prompt) {
-    await chrome.storage.local.set({ summaryPrompt: prompt });
-  }
+  await chrome.storage.local.set({
+    geminiApiKey: apiKey,
+    summaryPrompt: prompt,
+    targetSites: targetSites,
+  });
+
   alert('设置已保存！');
 }
 
 
 
 async function loadSettings() {
-  const result = await chrome.storage.local.get(['geminiApiKey', 'summaryPrompt']);
+  const result = await chrome.storage.local.get(['geminiApiKey', 'summaryPrompt', 'targetSites']);
   if (result.geminiApiKey) {
     document.getElementById('geminiApiKey').value = result.geminiApiKey;
   }
   // 如果没有保存的提示词，使用默认值
   document.getElementById('summaryPrompt').value = result.summaryPrompt || DEFAULT_SUMMARY_PROMPT;
-  
+  if (result.targetSites) {
+    document.getElementById('targetSites').value = result.targetSites;
+  }
 }
 
 // 添加恢复默认设置的函数

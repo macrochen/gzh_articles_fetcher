@@ -1,81 +1,64 @@
-// 提取文章信息
-function extractArticleInfo() {
-  // 等待文章内容加载完成
-  const checkContent = setInterval(() => {
-    const articleNode = document.querySelector('#js_content');
-    
-    if (articleNode) {
-      clearInterval(checkContent);
-      
-      try {
-        // 克隆文档以供解析处理
-        const documentClone = document.cloneNode(true);
-        
-        // 使用专用的公众号文章解析函数
-        const article = parseWeChatArticle(documentClone);
-        
-        if (!article) {
-          throw new Error('无法提取页面内容');
-        }
-        
-        // 准备要复制的文本
-        const textToCopy = `标题：${article.title.trim()}\n来源：${window.location.href}\n\n${article.textContent.trim()}`;
-        
-        // 自动复制到剪贴板
-        navigator.clipboard.writeText(textToCopy)
-          .then(() => {
-            // 显示复制成功提示
-            const notification = document.createElement('div');
-            notification.textContent = '已自动复制文章内容';
-            notification.style.cssText = `
-              position: fixed;
-              top: 20px;
-              right: 20px;
-              padding: 10px 20px;
-              background-color: #07C160;
-              color: white;
-              border-radius: 4px;
-              z-index: 9999;
-            `;
-            document.body.appendChild(notification);
-            setTimeout(() => notification.remove(), 3000);
-          })
-          .catch(error => {
-            console.error('复制失败 - 文章标题:', article.title);
-            console.error('错误详情:', error.name, error.message);
-          });
-        
-        // 发送消息到 background script
-        chrome.runtime.sendMessage({
-          type: 'SAVE_ARTICLE',
-          data: {
-            title: article.title.trim(),
-            textContent: article.textContent.trim(),
-            url: window.location.href,
-          }
-        });
-      } catch (error) {
-        console.error('提取文章失败:', error);
-      }
-    }
-  }, 1000); // 每秒检查一次
-  
-  // 30秒后停止检查
-  setTimeout(() => clearInterval(checkContent), 30000);
-}
+/**
+ * content.js
+ * 
+ * This script is injected into every page.
+ * It checks if the current site is in the user-configured list of target sites.
+ * If it is, it injects a "Fetch" button onto the page.
+ * Clicking the button sends a message to the background script to initiate the article fetching process.
+ */
 
-// 当页面加载完成后执行提取
-window.addEventListener('load', extractArticleInfo);
-
-// 添加消息监听器
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  if (request.action === 'fetchCurrentPage') {
-    try {
-      extractArticleInfo();
-      sendResponse({ success: true });
-    } catch (error) {
-      sendResponse({ success: false, error: error.message });
-    }
-    return true; // 保持消息通道开放以支持异步响应
+(async () => {
+  // Ensure the script doesn't run in an iframe
+  if (window.self !== window.top) {
+    return;
   }
-});
+
+  const result = await chrome.storage.local.get('targetSites');
+  const targetSites = result.targetSites ? result.targetSites.split('\n').filter(site => site.trim() !== '') : [];
+
+  if (targetSites.length === 0) {
+    return; // No sites configured
+  }
+
+  const currentUrl = window.location.href;
+
+  const shouldInject = targetSites.some(site => {
+    try {
+      // Use a simple startsWith check for broader matching (e.g., matches all pages on a domain)
+      return currentUrl.startsWith(site.trim());
+    } catch (e) {
+      console.error('Invalid site URL in options:', site, e);
+      return false;
+    }
+  });
+
+  if (shouldInject) {
+    createFetchButton();
+  }
+})();
+
+function createFetchButton() {
+  const button = document.createElement('button');
+  button.textContent = '抓取当前页面';
+  button.style.cssText = `
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 99999;
+    background-color: #07C160;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    padding: 10px 15px;
+    font-size: 14px;
+    cursor: pointer;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+  `;
+
+  button.addEventListener('click', () => {
+    chrome.runtime.sendMessage({ type: 'FETCH_AND_SAVE' });
+    button.remove(); // or button.style.display = 'none';
+  });
+
+  document.body.appendChild(button);
+}
