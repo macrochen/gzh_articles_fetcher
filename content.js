@@ -13,14 +13,22 @@
     return;
   }
 
+  const currentUrl = window.location.href;
+
+  // Restore original functionality: auto-fetch for WeChat articles
+  if (currentUrl.includes('mp.weixin.qq.com')) {
+    chrome.runtime.sendMessage({ type: 'FETCH_AND_SAVE' });
+    // We can return here or let it continue, doesn't matter much.
+    // If we let it continue, a user could add WeChat to the targetSites and also get a button.
+    // That seems fine.
+  }
+
   const result = await chrome.storage.local.get('targetSites');
   const targetSites = result.targetSites ? result.targetSites.split('\n').filter(site => site.trim() !== '') : [];
 
   if (targetSites.length === 0) {
-    return; // No sites configured
+    return; // No sites configured for the button
   }
-
-  const currentUrl = window.location.href;
 
   const shouldInject = targetSites.some(site => {
     try {
@@ -36,6 +44,7 @@
     createFetchButton();
   }
 })();
+
 
 function createFetchButton() {
   const button = document.createElement('button');
