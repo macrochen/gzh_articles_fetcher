@@ -367,10 +367,10 @@ async function sendChatMessage() {
   appendMessageToChatHistory(messageText, 'user');
   inputElement.value = ''; // 清空输入框
   
-  // 新增：清除所有预设提示词checkbox的选择状态
-  const checkboxes = document.querySelectorAll('#presetPromptsContainer input[type="checkbox"]');
-  checkboxes.forEach(checkbox => {
-    checkbox.checked = false;
+  // 新增：清除所有预设提示词tag的选择状态
+  const tags = document.querySelectorAll('#presetPromptsContainer .prompt-tag');
+  tags.forEach(tag => {
+    tag.classList.remove('selected');
   });
 
   // 构建发送给 Gemini 的上下文
@@ -935,33 +935,33 @@ document.addEventListener('DOMContentLoaded', () => {
   // 绑定删除选中按钮
   document.getElementById('deleteSelected').addEventListener('click', deleteSelectedArticles);
 
-  const presetSelect = document.getElementById('presetPromptsContainer');
-
-  // 修改为监听 change 事件
-  presetSelect.addEventListener('change', async function() {
-    // 获取所有选中的 checkbox，但排除全选复选框
-    const selectedCheckboxes = this.querySelectorAll('input[type="checkbox"]:checked:not(#select-all-presets)');
-    
-    // 获取 chatInput 元素
-    const chatInput = document.getElementById('chatInput');
-    
-    // 如果选中的是展开[x]复选框
-    if (selectedCheckboxes.length === 1 && selectedCheckboxes[0].id.endsWith("[x]") ) {
-      try {
-        // 读取剪贴板内容
-        const clipboardText = await navigator.clipboard.readText();
-        // 组合提示词和剪贴板内容
-        chatInput.value = `${selectedCheckboxes[0].value}${clipboardText}`;
-      } catch (err) {
-        // 如果无法访问剪贴板，则只使用提示词
-        chatInput.value = `${selectedCheckboxes[0].value}`;
+  const presetContainer = document.getElementById('presetPromptsContainer');
+  presetContainer.addEventListener('click', async function(event) {
+    if (event.target.classList.contains('prompt-tag')) {
+      const clickedTag = event.target;
+      
+      // Toggle selection
+      clickedTag.classList.toggle('selected');
+      
+      const chatInput = document.getElementById('chatInput');
+      const selectedTags = this.querySelectorAll('.prompt-tag.selected');
+      
+      const prompts = Array.from(selectedTags).map(tag => tag.dataset.prompt);
+      
+      // Special handling for "[x]" prompts
+      if (selectedTags.length === 1 && clickedTag.textContent.includes('[x]')) {
+        try {
+          const clipboardText = await navigator.clipboard.readText();
+          chatInput.value = `${clickedTag.dataset.prompt}${clipboardText}`;
+        } catch (err) {
+          chatInput.value = clickedTag.dataset.prompt;
+        }
+      } else {
+        chatInput.value = prompts.join('\n');
       }
-    } else {
-      // 将选中的值连接成字符串
-      chatInput.value = Array.from(selectedCheckboxes).map(cb => cb.value).join('\n');
+      
+      chatInput.focus();
     }
-    
-    chatInput.focus();
   });
 
 
@@ -1278,63 +1278,20 @@ async function loadPresetPrompts() {
   const result = await chrome.storage.local.get('presetPrompts');
   let presetPrompts = result.presetPrompts || DEFAULT_PRESET_PROMPTS;
   
-  // 更新两个预设提示词下拉菜单
-  const presetSelectors = document.querySelectorAll('#presetPromptsContainer');
-  presetSelectors.forEach(container => {
-    container.innerHTML = ''; // 清空容器
-  
-  
-    const itemsContainer = document.createElement('div');
-    itemsContainer.className = 'preset-items-container';
-    container.appendChild(itemsContainer);
+  // 更新预设提示词容器
+  const presetContainer = document.getElementById('presetPromptsContainer');
+  presetContainer.innerHTML = ''; // 清空容器
 
-    // 创建全选复选框
-    const selectAllWrapper = document.createElement('div');
-    selectAllWrapper.className = 'preset-item';
-    
-    const selectAllCheckbox = document.createElement('input');
-    selectAllCheckbox.type = 'checkbox';
-    selectAllCheckbox.id = 'select-all-presets';
-    
-    const selectAllLabel = document.createElement('label');
-    selectAllLabel.htmlFor = 'select-all-presets';
-    selectAllLabel.textContent = '全选';
-    
-    // 添加全选复选框的事件监听器
-    selectAllCheckbox.addEventListener('change', (e) => {
-      const checkboxes = itemsContainer.querySelectorAll('input[type="checkbox"]');
-      checkboxes.forEach(checkbox => {
-        // 获取复选框的label文本
-        const labelText = checkbox.parentElement?.textContent || '';
-        // 如果文本中不包含[x]，则应用全选状态
-        if (!labelText.includes('[x]')) {
-          checkbox.checked = e.target.checked;
-        }
-      });
-    });
-    
-    selectAllWrapper.appendChild(selectAllCheckbox);
-    selectAllWrapper.appendChild(selectAllLabel);
-    itemsContainer.appendChild(selectAllWrapper);
+  const tagsContainer = document.createElement('div');
+  tagsContainer.className = 'prompt-tags-container';
+  presetContainer.appendChild(tagsContainer);
 
-    // 创建checkbox列表
-    presetPrompts.forEach(preset => {
-      const wrapper = document.createElement('div');
-      wrapper.className = 'preset-item';
-    
-      const checkbox = document.createElement('input');
-      checkbox.type = 'checkbox';
-      checkbox.id = `preset-${preset.name}`;
-      checkbox.value = preset.prompt;
-    
-      const label = document.createElement('label');
-      label.htmlFor = `preset-${preset.name}`;
-      label.textContent = preset.name;
-    
-      wrapper.appendChild(checkbox);
-      wrapper.appendChild(label);
-      itemsContainer.appendChild(wrapper);
-    });
+  presetPrompts.forEach(preset => {
+    const tag = document.createElement('div');
+    tag.className = 'prompt-tag';
+    tag.textContent = preset.name;
+    tag.dataset.prompt = preset.prompt;
+    tagsContainer.appendChild(tag);
   });
 }
 
