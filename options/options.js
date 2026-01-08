@@ -397,7 +397,7 @@ async function sendChatMessage() {
 
 
   try {
-    const API_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:streamGenerateContent?key=${apiKey}&alt=sse`;
+    const API_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent?key=${apiKey}&alt=sse`;
     const requestBody = {
       contents: [{ parts: [{ text: conversationContext }] }],
       generationConfig: {
@@ -1076,7 +1076,7 @@ function prepareSelectedArticles(checkboxes, articles) {
 
 // 调用批量总结API
 async function callBatchSummaryAPI(apiKey, summaryPrompt, selectedArticles) {
-  const API_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+  const API_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
   const requestBody = {
     contents: [{
       parts: [{
