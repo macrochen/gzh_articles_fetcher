@@ -514,7 +514,7 @@ function appendMessageToChatHistory(text, sender) {
   messageElement.appendChild(messageContent);
 
   // 为用户消息添加展开/收起按钮
-  if (sender === 'user' && text.length > 100) { // 仅当消息长度超过100时才添加按钮
+  if (sender === 'user' && (text.length > 100 || text.includes('\n'))) { // 消息长度超过100或包含换行符时添加按钮
     const toggleButton = document.createElement('button');
     toggleButton.textContent = '展开';
     toggleButton.classList.add('toggle-button');

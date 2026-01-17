@@ -376,6 +376,21 @@ button:hover {
   text-overflow: ellipsis;
 }
 
+/* 强制非展开状态下的所有子元素显示为内联，确保只有一行 */
+.chat-message.user .message-content:not(.expanded) * {
+  display: inline !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  white-space: nowrap !important;
+  border: none !important;
+  line-height: 1 !important;
+}
+
+/* 非展开状态下隐藏换行符 */
+.chat-message.user .message-content:not(.expanded) br {
+  display: none !important;
+}
+
 .chat-message.user .message-content.expanded {
   display: block; /* On expand, make it a block to take full width */
   white-space: normal;
