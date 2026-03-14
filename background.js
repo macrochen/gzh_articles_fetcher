@@ -78,7 +78,10 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     // 处理文章保存逻辑
     saveArticle(request.data);
   } else if (request.type === 'FETCH_AND_SAVE') {
-    fetchAndSaveTab(sender.tab);
+    const targetTab = request.tab || sender.tab;
+    if (targetTab) {
+      fetchAndSaveTab(targetTab);
+    }
   }
 });
 
@@ -107,6 +110,11 @@ async function saveArticle(article) {
       
       articles.push(article);
       await chrome.storage.local.set({ articles });
+      
+      // 广播更新消息
+      chrome.runtime.sendMessage({ type: 'ARTICLES_UPDATED' }).catch(() => {
+        // 忽略没有接收者的错误 (例如 popup 未打开时)
+      });
     }
   } catch (error) {
     console.error('保存文章失败:', error);

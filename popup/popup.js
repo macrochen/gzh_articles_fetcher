@@ -1,87 +1,48 @@
-document.getElementById('openManager').addEventListener('click', () => {
-  chrome.runtime.openOptionsPage();
-});
+function updateStatus() {
+  chrome.storage.local.get('articles', (result) => {
+    const count = result.articles?.length || 0;
+    const statusEl = document.getElementById('status');
+    if (statusEl) {
+      statusEl.textContent = `已采集 ${count} 篇文章`;
+    }
+  });
+}
 
-// 显示当前状态
-chrome.storage.local.get('articles', (result) => {
-  const count = result.articles?.length || 0;
-  document.getElementById('status').textContent = `已采集 ${count} 篇文章`;
-});
+document.addEventListener('DOMContentLoaded', () => {
+  updateStatus();
 
-// 抓取当前页面内容
-document.getElementById('fetchCurrent').addEventListener('click', async () => {
-  try {
-    // 获取当前标签页
-    const [tab] = await chrome.tabs.query({active: true, currentWindow: true});
-    
-    // 先注入 Readability.js
-    await chrome.scripting.executeScript({
-      target: { tabId: tab.id },
-      files: ['Readability.js']
-    });
-    
-    // 注入 utils.js
-    await chrome.scripting.executeScript({
-      target: { tabId: tab.id },
-      files: ['utils.js']
-    });
-    
-    // 注入并执行内容抓取函数
-    await chrome.scripting.executeScript({
-      target: { tabId: tab.id },
-      func: () => {
-        try {
-          // 克隆文档以供解析处理
-          const documentClone = document.cloneNode(true);
-          
-          // 使用专用的公众号文章解析函数
-          const article = parseWeChatArticle(documentClone);
-          
-          if (!article) {
-            throw new Error('无法提取页面内容');
-          }
-          
-          // 发送消息到 background script
-          chrome.runtime.sendMessage({
-            type: 'SAVE_ARTICLE',
-            data: {
-              title: article.title.trim(),
-              textContent: article.textContent.trim(),
-              url: window.location.href,
-            }
-          });
-          
-          // 显示复制成功提示
-          const notification = document.createElement('div');
-          notification.textContent = '已自动复制文章内容';
-          notification.style.cssText = `
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            padding: 10px 20px;
-            background-color: #07C160;
-            color: white;
-            border-radius: 4px;
-            z-index: 9999;
-          `;
-          document.body.appendChild(notification);
-          setTimeout(() => notification.remove(), 3000);
-          
-          return { success: true };
-        } catch (error) {
-          return { success: false, error: error.message };
-        }
+  document.getElementById('openManager').addEventListener('click', () => {
+    chrome.runtime.openOptionsPage();
+  });
+
+  // 抓取当前页面内容
+  document.getElementById('fetchCurrent').addEventListener('click', async () => {
+    try {
+      // 获取当前标签页
+      const [tab] = await chrome.tabs.query({active: true, currentWindow: true});
+      
+      if (!tab) {
+        throw new Error('无法获取当前标签页');
       }
-    });
-    
-    // 更新状态显示
-    const articles = await chrome.storage.local.get('articles');
-    const count = articles.articles?.length || 0;
-    document.getElementById('status').textContent = `已采集 ${count} 篇文章`;
-    
-    // 显示成功消息
-    // alert('页面内容已添加到文章列表');
-  } catch (error) {
-    alert('抓取失败：' + error.message);
+
+      // 发送消息给 background script 进行处理
+      chrome.runtime.sendMessage({
+        type: 'FETCH_AND_SAVE',
+        tab: tab
+      });
+      
+      // 可以在这里给个简单的 UI 反馈，比如按钮变色，
+      // 但实际的成功状态更新会通过 runtime 消息回来。
+      
+    } catch (error) {
+      alert('发起抓取请求失败：' + error.message);
+    }
+  });
+});
+
+// 监听来自 background 的更新消息
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.type === 'ARTICLES_UPDATED') {
+    updateStatus();
   }
 });

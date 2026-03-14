@@ -206,11 +206,13 @@ async function saveSettings() {
   const apiKey = document.getElementById('geminiApiKey').value;
   const prompt = document.getElementById('summaryPrompt').value;
   const targetSites = document.getElementById('targetSites').value;
+  const exportFormat = document.getElementById('exportFormat').value;
 
   await chrome.storage.local.set({
     geminiApiKey: apiKey,
     summaryPrompt: prompt,
     targetSites: targetSites,
+    exportFormat: exportFormat,
   });
 
   alert('设置已保存！');
@@ -219,7 +221,7 @@ async function saveSettings() {
 
 
 async function loadSettings() {
-  const result = await chrome.storage.local.get(['geminiApiKey', 'summaryPrompt', 'targetSites']);
+  const result = await chrome.storage.local.get(['geminiApiKey', 'summaryPrompt', 'targetSites', 'exportFormat']);
   if (result.geminiApiKey) {
     document.getElementById('geminiApiKey').value = result.geminiApiKey;
   }
@@ -227,6 +229,9 @@ async function loadSettings() {
   document.getElementById('summaryPrompt').value = result.summaryPrompt || DEFAULT_SUMMARY_PROMPT;
   if (result.targetSites) {
     document.getElementById('targetSites').value = result.targetSites;
+  }
+  if (result.exportFormat) {
+    document.getElementById('exportFormat').value = result.exportFormat;
   }
 }
 
@@ -600,8 +605,10 @@ async function exportSelectedToLocal() {
     return;
   }
 
-  const result = await chrome.storage.local.get('articles');
+  const result = await chrome.storage.local.get(['articles', 'exportFormat']);
   const allArticles = result.articles || [];
+  const exportFormat = result.exportFormat || 'json';
+  
   const selectedTitles = Array.from(checkboxes).map(cb => cb.dataset.title);
   const selectedArticles = allArticles.filter(article => selectedTitles.includes(article.title));
 
@@ -610,17 +617,50 @@ async function exportSelectedToLocal() {
     return;
   }
 
-  // 将文章数据转换为JSON字符串
-  const jsonStr = JSON.stringify(selectedArticles, null, 2);
+  let fileContent = '';
+  let mimeType = 'application/json';
+  let extension = 'json';
+
+  if (exportFormat === 'txt') {
+    fileContent = selectedArticles.map(article => 
+      `标题: ${article.title}\n链接: ${article.url}\n\n${article.textContent}\n\n` + 
+      `--------------------------------------------------\n\n`
+    ).join('');
+    mimeType = 'text/plain';
+    extension = 'txt';
+  } else if (exportFormat === 'md') {
+    fileContent = selectedArticles.map(article => 
+      `# ${article.title}\n\n原文链接: [${article.title}](${article.url})\n\n${article.textContent}\n\n` + 
+      `---\n\n`
+    ).join('');
+    mimeType = 'text/plain'; // Markdown is text/plain or text/markdown
+    extension = 'md';
+  } else {
+    // Default to JSON
+    fileContent = JSON.stringify(selectedArticles, null, 2);
+    mimeType = 'application/json';
+    extension = 'json';
+  }
+
+  // 确定文件名
+  let filename = `articles_${new Date().toISOString().split('T')[0]}`;
+  if (selectedArticles.length > 0 && selectedArticles[0].title) {
+    // 使用第一篇文章的标题，并去除非法字符
+    filename = selectedArticles[0].title.replace(/[\\/:*?"<>|]/g, "_").replace(/\s+/g, " ").trim();
+    // 限制长度
+    if (filename.length > 100) {
+      filename = filename.substring(0, 100);
+    }
+  }
 
   // 创建Blob对象
-  const blob = new Blob([jsonStr], { type: 'application/json' });
+  const blob = new Blob([fileContent], { type: mimeType });
 
   // 创建下载链接
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `articles_${new Date().toISOString().split('T')[0]}.json`;
+  a.download = `${filename}.${extension}`;
 
   // 触发下载
   document.body.appendChild(a);
