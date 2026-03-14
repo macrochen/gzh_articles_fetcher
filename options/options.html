@@ -38,6 +38,10 @@
                 <label for="targetSites">在指定网站注入抓取按钮 (一行一个):</label>
                 <textarea id="targetSites" rows="4" placeholder="例如: https://www.some-site.com" style="width: 100%;"></textarea>
               </div>
+              <div style="margin-top: 10px;">
+                <label for="excludedAutoFetchUrls">自动抓取排除列表 (一行一个 URL，支持完整匹配和模糊匹配):</label>
+                <textarea id="excludedAutoFetchUrls" rows="4" placeholder="例如: https://mp.weixin.qq.com/s/abc123 或 biz=Mz..." style="width: 100%;"></textarea>
+              </div>
             </div>
             <!-- 导出设置组 -->
             <div class="settings-group">

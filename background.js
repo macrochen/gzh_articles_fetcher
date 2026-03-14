@@ -1,5 +1,13 @@
 async function fetchAndSaveTab(tab) {
   try {
+    if (!tab?.url) {
+      return;
+    }
+
+    if (await shouldSkipAutoFetch(tab.url)) {
+      return;
+    }
+
     // 注入 Readability.js
     await chrome.scripting.executeScript({
       target: { tabId: tab.id },
@@ -62,6 +70,32 @@ async function fetchAndSaveTab(tab) {
   } catch (error) {
     console.error('抓取失败：', error);
   }
+}
+
+async function shouldSkipAutoFetch(url) {
+  if (!url || !url.includes('mp.weixin.qq.com')) {
+    return false;
+  }
+
+  const result = await chrome.storage.local.get('excludedAutoFetchUrls');
+  const patterns = splitLines(result.excludedAutoFetchUrls);
+  return matchesExcludedUrl(url, patterns);
+}
+
+function splitLines(value) {
+  return value ? value.split('\n').map(line => line.trim()).filter(Boolean) : [];
+}
+
+function matchesExcludedUrl(currentUrl, patterns) {
+  return patterns.some(pattern => {
+    if (!pattern) {
+      return false;
+    }
+
+    return currentUrl === pattern ||
+      currentUrl.startsWith(pattern) ||
+      currentUrl.includes(pattern);
+  });
 }
 
 // 监听标签页更新事件

@@ -206,12 +206,14 @@ async function saveSettings() {
   const apiKey = document.getElementById('geminiApiKey').value;
   const prompt = document.getElementById('summaryPrompt').value;
   const targetSites = document.getElementById('targetSites').value;
+  const excludedAutoFetchUrls = document.getElementById('excludedAutoFetchUrls').value;
   const exportFormat = document.getElementById('exportFormat').value;
 
   await chrome.storage.local.set({
     geminiApiKey: apiKey,
     summaryPrompt: prompt,
     targetSites: targetSites,
+    excludedAutoFetchUrls: excludedAutoFetchUrls,
     exportFormat: exportFormat,
   });
 
@@ -221,7 +223,13 @@ async function saveSettings() {
 
 
 async function loadSettings() {
-  const result = await chrome.storage.local.get(['geminiApiKey', 'summaryPrompt', 'targetSites', 'exportFormat']);
+  const result = await chrome.storage.local.get([
+    'geminiApiKey',
+    'summaryPrompt',
+    'targetSites',
+    'excludedAutoFetchUrls',
+    'exportFormat'
+  ]);
   if (result.geminiApiKey) {
     document.getElementById('geminiApiKey').value = result.geminiApiKey;
   }
@@ -229,6 +237,9 @@ async function loadSettings() {
   document.getElementById('summaryPrompt').value = result.summaryPrompt || DEFAULT_SUMMARY_PROMPT;
   if (result.targetSites) {
     document.getElementById('targetSites').value = result.targetSites;
+  }
+  if (result.excludedAutoFetchUrls) {
+    document.getElementById('excludedAutoFetchUrls').value = result.excludedAutoFetchUrls;
   }
   if (result.exportFormat) {
     document.getElementById('exportFormat').value = result.exportFormat;

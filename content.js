@@ -14,17 +14,19 @@
   }
 
   const currentUrl = window.location.href;
+  const result = await chrome.storage.local.get(['targetSites', 'excludedAutoFetchUrls']);
+  const targetSites = splitLines(result.targetSites);
+  const excludedAutoFetchUrls = splitLines(result.excludedAutoFetchUrls);
+  const isWeChatUrl = currentUrl.includes('mp.weixin.qq.com');
+  const isExcluded = matchesExcludedUrl(currentUrl, excludedAutoFetchUrls);
 
   // Restore original functionality: auto-fetch for WeChat articles
-  if (currentUrl.includes('mp.weixin.qq.com')) {
+  if (isWeChatUrl && !isExcluded) {
     chrome.runtime.sendMessage({ type: 'FETCH_AND_SAVE' });
     // We can return here or let it continue, doesn't matter much.
     // If we let it continue, a user could add WeChat to the targetSites and also get a button.
     // That seems fine.
   }
-
-  const result = await chrome.storage.local.get('targetSites');
-  const targetSites = result.targetSites ? result.targetSites.split('\n').filter(site => site.trim() !== '') : [];
 
   if (targetSites.length === 0) {
     return; // No sites configured for the button
@@ -45,6 +47,21 @@
   }
 })();
 
+function splitLines(value) {
+  return value ? value.split('\n').map(line => line.trim()).filter(Boolean) : [];
+}
+
+function matchesExcludedUrl(currentUrl, patterns) {
+  return patterns.some(pattern => {
+    if (!pattern) {
+      return false;
+    }
+
+    return currentUrl === pattern ||
+      currentUrl.startsWith(pattern) ||
+      currentUrl.includes(pattern);
+  });
+}
 
 function createFetchButton() {
   const button = document.createElement('button');
