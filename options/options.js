@@ -204,6 +204,7 @@ const DEFAULT_SUMMARY_PROMPT = `# 任务目标
 // (确保 saveSettings 和 loadSettings 在这里定义)
 async function saveSettings() {
   const apiKey = document.getElementById('geminiApiKey').value;
+  const aiChatUrl = document.getElementById('aiChatUrl').value;
   const prompt = document.getElementById('summaryPrompt').value;
   const targetSites = document.getElementById('targetSites').value;
   const excludedAutoFetchUrls = document.getElementById('excludedAutoFetchUrls').value;
@@ -211,6 +212,7 @@ async function saveSettings() {
 
   await chrome.storage.local.set({
     geminiApiKey: apiKey,
+    aiChatUrl: aiChatUrl,
     summaryPrompt: prompt,
     targetSites: targetSites,
     excludedAutoFetchUrls: excludedAutoFetchUrls,
@@ -225,6 +227,7 @@ async function saveSettings() {
 async function loadSettings() {
   const result = await chrome.storage.local.get([
     'geminiApiKey',
+    'aiChatUrl',
     'summaryPrompt',
     'targetSites',
     'excludedAutoFetchUrls',
@@ -232,6 +235,9 @@ async function loadSettings() {
   ]);
   if (result.geminiApiKey) {
     document.getElementById('geminiApiKey').value = result.geminiApiKey;
+  }
+  if (result.aiChatUrl) {
+    document.getElementById('aiChatUrl').value = result.aiChatUrl;
   }
   // 如果没有保存的提示词，使用默认值
   document.getElementById('summaryPrompt').value = result.summaryPrompt || DEFAULT_SUMMARY_PROMPT;
@@ -610,18 +616,13 @@ function appendMessageToChatHistory(text, sender) {
 
 // 导出到本地文件
 async function exportSelectedToLocal() {
-  const checkboxes = document.querySelectorAll('.article-checkbox:checked');
-  if (checkboxes.length === 0) {
-    alert('请至少选择一篇文章');
+  const selectedArticles = await getSelectedArticlesFromSelection();
+  if (!selectedArticles) {
     return;
   }
 
   const result = await chrome.storage.local.get(['articles', 'exportFormat']);
-  const allArticles = result.articles || [];
   const exportFormat = result.exportFormat || 'json';
-  
-  const selectedTitles = Array.from(checkboxes).map(cb => cb.dataset.title);
-  const selectedArticles = allArticles.filter(article => selectedTitles.includes(article.title));
 
   if (selectedArticles.length === 0) {
     alert('没有可导出的文章！');
@@ -680,6 +681,62 @@ async function exportSelectedToLocal() {
   // 清理
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
+}
+
+async function getSelectedArticlesFromSelection() {
+  const checkboxes = document.querySelectorAll('.article-checkbox:checked');
+  if (checkboxes.length === 0) {
+    alert('请至少选择一篇文章');
+    return null;
+  }
+
+  const result = await chrome.storage.local.get('articles');
+  const articles = result.articles || [];
+
+  return articles.filter(article =>
+    Array.from(checkboxes).some(cb => cb.dataset.title === article.title)
+  );
+}
+
+function buildSelectedArticlesPayload(selectedArticles) {
+  return JSON.stringify({
+    articles: selectedArticles.map(article => ({
+      title: article.title,
+      url: article.url,
+      content: article.textContent,
+    }))
+  }, null, 2);
+}
+
+async function sendSelectedToAiChat() {
+  const aiChatUrl = document.getElementById('aiChatUrl').value.trim();
+  if (!aiChatUrl) {
+    alert('请先在设置中填写 AI Chat URL');
+    return;
+  }
+
+  const selectedArticles = await getSelectedArticlesFromSelection();
+  if (!selectedArticles) {
+    return;
+  }
+
+  const payload = buildSelectedArticlesPayload(selectedArticles);
+
+  try {
+    await navigator.clipboard.writeText(payload);
+    await chrome.storage.local.set({
+      pendingAiChatPayload: {
+        text: payload,
+        targetUrl: aiChatUrl,
+        createdAt: Date.now(),
+      }
+    });
+    await chrome.tabs.create({ url: aiChatUrl });
+    alert('已复制文章内容并打开 AI Chat 页面。如未自动填入，可直接粘贴。');
+  } catch (error) {
+    console.error('发送到 AI Chat 失败:', error);
+    alert('发送到 AI Chat 失败：' + error.message);
+  }
 }
 
 // 导出到 Google Drive (保持大部分不变，但确保文章数据是最新的)
@@ -924,28 +981,13 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   document.getElementById('copyToClipboard').addEventListener('click', async function() {
-    const checkboxes = document.querySelectorAll('.article-checkbox:checked');
-    if (checkboxes.length === 0) {
-      alert('请至少选择一篇文章');
+    const selectedArticles = await getSelectedArticlesFromSelection();
+    if (!selectedArticles) {
       return;
     }
 
     try {
-      const result = await chrome.storage.local.get('articles');
-      const articles = result.articles || [];
-      const selectedArticles = articles.filter(article => 
-        Array.from(checkboxes).some(cb => cb.dataset.title === article.title)
-      );
-
-      const articlesJson = {
-        articles: selectedArticles.map(article => ({
-          title: article.title,
-          url: article.url,
-          content: article.textContent,
-        }))
-      };
-
-      await navigator.clipboard.writeText(JSON.stringify(articlesJson, null, 2));
+      await navigator.clipboard.writeText(buildSelectedArticlesPayload(selectedArticles));
       alert('已成功将选中的文章以JSON格式复制到剪贴板');
     } catch (error) {
       console.error('复制到剪贴板失败:', error);
@@ -972,6 +1014,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   document.getElementById('summarizeSelected').addEventListener('click', summarizeSelectedArticles);
+  document.getElementById('sendToAiChat').addEventListener('click', sendSelectedToAiChat);
 
 
   // 绑定全选功能

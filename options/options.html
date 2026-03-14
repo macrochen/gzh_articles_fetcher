@@ -27,6 +27,10 @@
                 <input type="password" id="geminiApiKey" placeholder="请输入您的 Google Gemini API Key">
               </div>
               <div>
+                <label for="aiChatUrl">AI Chat URL:</label>
+                <input type="text" id="aiChatUrl" placeholder="例如: https://chatgpt.com/g/g-69b54bb702f88191949b0725b674eb36">
+              </div>
+              <div>
                 <label for="summaryPrompt">总结提示词:</label>
                 <textarea id="summaryPrompt" rows="4" placeholder="例如：请总结以下内容" style="width: 100%;"></textarea>
               </div>
@@ -76,6 +80,7 @@
         <button id="importFromLocal">导入本地文件</button>
         <input type="file" id="importFileInput" accept=".json" style="display: none;">
         <button id="copyToClipboard">选中到剪贴板</button>
+        <button id="sendToAiChat">发送到 AI Chat</button>
       </div>
     </div>
     

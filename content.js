@@ -14,11 +14,18 @@
   }
 
   const currentUrl = window.location.href;
-  const result = await chrome.storage.local.get(['targetSites', 'excludedAutoFetchUrls']);
+  const result = await chrome.storage.local.get([
+    'targetSites',
+    'excludedAutoFetchUrls',
+    'aiChatUrl',
+    'pendingAiChatPayload'
+  ]);
   const targetSites = splitLines(result.targetSites);
   const excludedAutoFetchUrls = splitLines(result.excludedAutoFetchUrls);
   const isWeChatUrl = currentUrl.includes('mp.weixin.qq.com');
   const isExcluded = matchesExcludedUrl(currentUrl, excludedAutoFetchUrls);
+
+  maybeFillAiChatInput(currentUrl, result.aiChatUrl, result.pendingAiChatPayload);
 
   // Restore original functionality: auto-fetch for WeChat articles
   if (isWeChatUrl && !isExcluded) {
@@ -61,6 +68,164 @@ function matchesExcludedUrl(currentUrl, patterns) {
       currentUrl.startsWith(pattern) ||
       currentUrl.includes(pattern);
   });
+}
+
+async function maybeFillAiChatInput(currentUrl, aiChatUrl, pendingPayload) {
+  if (!pendingPayload?.text || !aiChatUrl) {
+    return;
+  }
+
+  if (!matchesAiChatUrl(currentUrl, pendingPayload.targetUrl || aiChatUrl)) {
+    return;
+  }
+
+  const input = await waitForChatInput();
+  if (!input) {
+    return;
+  }
+
+  const filled = fillChatInput(input, pendingPayload.text);
+  if (!filled) {
+    return;
+  }
+
+  const submitted = await submitChatInput(input);
+  if (submitted) {
+    chrome.storage.local.remove('pendingAiChatPayload');
+  }
+}
+
+function matchesAiChatUrl(currentUrl, aiChatUrl) {
+  const normalizedCurrent = normalizeUrlForMatch(currentUrl);
+  const normalizedTarget = normalizeUrlForMatch(aiChatUrl);
+
+  return normalizedCurrent === normalizedTarget ||
+    normalizedCurrent.startsWith(normalizedTarget);
+}
+
+function normalizeUrlForMatch(url) {
+  return (url || '').trim().replace(/\/+$/, '');
+}
+
+async function waitForChatInput(timeoutMs = 15000, intervalMs = 500) {
+  const start = Date.now();
+
+  while (Date.now() - start < timeoutMs) {
+    const input = findChatInput();
+    if (input) {
+      return input;
+    }
+    await new Promise(resolve => setTimeout(resolve, intervalMs));
+  }
+
+  return null;
+}
+
+function findChatInput() {
+  const selectors = [
+    '#prompt-textarea',
+    'textarea[data-id]',
+    'textarea[placeholder*="Message"]',
+    'textarea[placeholder*="message"]',
+    'textarea',
+    'div[contenteditable="true"][role="textbox"]',
+    'div[contenteditable="true"].ProseMirror',
+    'div[contenteditable="true"]'
+  ];
+
+  for (const selector of selectors) {
+    const element = document.querySelector(selector);
+    if (element && isElementVisible(element)) {
+      return element;
+    }
+  }
+
+  return null;
+}
+
+function isElementVisible(element) {
+  const rect = element.getBoundingClientRect();
+  return rect.width > 0 && rect.height > 0;
+}
+
+function fillChatInput(element, text) {
+  try {
+    element.focus();
+
+    if (element instanceof HTMLTextAreaElement || element instanceof HTMLInputElement) {
+      element.value = text;
+      element.dispatchEvent(new Event('input', { bubbles: true }));
+      element.dispatchEvent(new Event('change', { bubbles: true }));
+      return true;
+    }
+
+    if (element.isContentEditable) {
+      element.textContent = text;
+      element.dispatchEvent(new InputEvent('input', {
+        bubbles: true,
+        data: text,
+        inputType: 'insertText'
+      }));
+      return true;
+    }
+  } catch (error) {
+    console.error('自动填充 AI Chat 输入框失败:', error);
+  }
+
+  return false;
+}
+
+async function submitChatInput(input) {
+  await new Promise(resolve => setTimeout(resolve, 300));
+
+  const sendButton = findSendButton();
+  if (sendButton) {
+    sendButton.click();
+    return true;
+  }
+
+  return dispatchSubmitKeystroke(input);
+}
+
+function findSendButton() {
+  const selectors = [
+    'button[data-testid="send-button"]',
+    'button[aria-label*="Send"]',
+    'button[aria-label*="发送"]',
+    'button[title*="Send"]',
+    'button[type="submit"]'
+  ];
+
+  for (const selector of selectors) {
+    const buttons = Array.from(document.querySelectorAll(selector));
+    const button = buttons.find(candidate =>
+      isElementVisible(candidate) && !candidate.disabled && candidate.getAttribute('aria-disabled') !== 'true'
+    );
+
+    if (button) {
+      return button;
+    }
+  }
+
+  return null;
+}
+
+function dispatchSubmitKeystroke(input) {
+  const enterEventInit = {
+    key: 'Enter',
+    code: 'Enter',
+    keyCode: 13,
+    which: 13,
+    bubbles: true,
+    cancelable: true,
+  };
+
+  input.focus();
+  const keydownHandled = input.dispatchEvent(new KeyboardEvent('keydown', enterEventInit));
+  input.dispatchEvent(new KeyboardEvent('keypress', enterEventInit));
+  input.dispatchEvent(new KeyboardEvent('keyup', enterEventInit));
+
+  return keydownHandled;
 }
 
 function createFetchButton() {
