@@ -135,7 +135,7 @@ function Readability(doc, options) {
   
     ALTER_TO_DIV_EXCEPTIONS: ["DIV", "ARTICLE", "SECTION", "P"],
   
-    PRESENTATIONAL_ATTRIBUTES: [ "align", "background", "bgcolor", "border", "cellpadding", "cellspacing", "frame", "hspace", "rules", "style", "valign", "vspace" ],
+    PRESENTATIONAL_ATTRIBUTES: [ "align", "background", "bgcolor", "border", "cellpadding", "cellspacing", "frame", "hspace", "rules", "valign", "vspace" ],
   
     DEPRECATED_SIZE_ATTRIBUTE_ELEMS: [ "TABLE", "TH", "TD", "HR", "PRE" ],
   
@@ -570,12 +570,11 @@ function Readability(doc, options) {
   
       this._fixLazyImages(articleContent);
   
-      // Clean out junk from the article content
       this._cleanConditionally(articleContent, "form");
       this._cleanConditionally(articleContent, "fieldset");
       this._clean(articleContent, "object");
       this._clean(articleContent, "embed");
-      this._clean(articleContent, "h1");
+      // this._clean(articleContent, "h1"); // Keep h1 tags, as they are often used for section headings or we want them preserved in Markdown
       this._clean(articleContent, "footer");
       this._clean(articleContent, "link");
       this._clean(articleContent, "aside");

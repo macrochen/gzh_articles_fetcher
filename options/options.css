@@ -59,9 +59,9 @@ body {
 
 .settings-section {
   margin: 0;
-  padding: 15px;
+  padding: 18px;
   border: 1px solid #ddd;
-  border-radius: 5px;
+  border-radius: 10px;
   background-color: #f9f9f9;
 }
 
@@ -91,6 +91,79 @@ body {
   margin: 0;
   font-size: 16px;
   color: #333;
+}
+
+.settings-group {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 14px;
+}
+
+.settings-group:first-child {
+  margin-top: 8px;
+}
+
+.settings-group h3 {
+  margin: 0;
+  font-size: 14px;
+  color: #555;
+}
+
+.setting-row {
+  display: grid;
+  grid-template-columns: 120px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+}
+
+.setting-block {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.settings-group label {
+  font-size: 13px;
+  color: #555;
+  font-weight: 600;
+}
+
+.settings-group input,
+.settings-group textarea,
+.settings-group select {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 12px;
+  border: 1px solid #cfcfcf;
+  border-radius: 8px;
+  font-size: 14px;
+  background: #fff;
+}
+
+.settings-group textarea {
+  min-height: 110px;
+  resize: vertical;
+  line-height: 1.5;
+}
+
+.settings-group input:focus,
+.settings-group textarea:focus,
+.settings-group select:focus {
+  outline: none;
+  border-color: #4CAF50;
+  box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.12);
+}
+
+.settings-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.settings-actions button {
+  flex: 1 1 180px;
 }
 
 .articles-list {
@@ -236,6 +309,17 @@ button:hover {
   margin: 10px 0;
   border: 1px solid #ddd;
   border-radius: 4px;
+}
+
+@media (max-width: 900px) {
+  .setting-row {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+
+  .settings-actions button {
+    flex-basis: 100%;
+  }
 }
 
 .summary-results {

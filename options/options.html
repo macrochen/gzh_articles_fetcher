@@ -22,44 +22,44 @@
             <!-- API设置组 -->
             <div class="settings-group">
               <h3>API 设置</h3>
-              <div>
+              <div class="setting-row">
                 <label for="geminiApiKey">API Key:</label>
                 <input type="password" id="geminiApiKey" placeholder="请输入您的 Google Gemini API Key">
               </div>
-              <div>
+              <div class="setting-row">
                 <label for="aiChatUrl">AI Chat URL:</label>
                 <input type="text" id="aiChatUrl" placeholder="例如: https://chatgpt.com/g/g-69b54bb702f88191949b0725b674eb36">
               </div>
-              <div>
+              <div class="setting-block">
                 <label for="summaryPrompt">总结提示词:</label>
-                <textarea id="summaryPrompt" rows="4" placeholder="例如：请总结以下内容" style="width: 100%;"></textarea>
+                <textarea id="summaryPrompt" rows="4" placeholder="例如：请总结以下内容"></textarea>
               </div>
             </div>
             <!-- 注入设置组 -->
             <div class="settings-group">
               <h3>注入设置</h3>
-              <div>
+              <div class="setting-block">
                 <label for="targetSites">在指定网站注入抓取按钮 (一行一个):</label>
-                <textarea id="targetSites" rows="4" placeholder="例如: https://www.some-site.com" style="width: 100%;"></textarea>
+                <textarea id="targetSites" rows="4" placeholder="例如: https://www.some-site.com"></textarea>
               </div>
-              <div style="margin-top: 10px;">
+              <div class="setting-block">
                 <label for="excludedAutoFetchUrls">自动抓取排除列表 (一行一个 URL，支持完整匹配和模糊匹配):</label>
-                <textarea id="excludedAutoFetchUrls" rows="4" placeholder="例如: https://mp.weixin.qq.com/s/abc123 或 biz=Mz..." style="width: 100%;"></textarea>
+                <textarea id="excludedAutoFetchUrls" rows="4" placeholder="例如: https://mp.weixin.qq.com/s/abc123 或 biz=Mz..."></textarea>
               </div>
             </div>
             <!-- 导出设置组 -->
             <div class="settings-group">
               <h3>导出设置</h3>
-              <div>
+              <div class="setting-block">
                 <label for="exportFormat">本地导出格式:</label>
-                <select id="exportFormat" style="width: 100%; padding: 8px; margin-top: 5px;">
+                <select id="exportFormat">
                   <option value="json">JSON (.json)</option>
                   <option value="txt">纯文本 (.txt)</option>
                   <option value="md">Markdown (.md)</option>
                 </select>
               </div>
             </div>
-            <div style="display: flex; gap: 10px; margin-top: 10px;">
+            <div class="settings-actions">
               <button id="editPresetPrompts">编辑预设提示词</button>
               <button id="resetAllSettings">恢复默认设置</button>
               <button id="saveSettings">保存设置</button>

@@ -20,6 +20,12 @@ async function fetchAndSaveTab(tab) {
       files: ['utils.js']
     });
 
+    // 注入 turndown.js
+    await chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      files: ['turndown.js']
+    });
+
     // 注入并执行内容抓取函数
     await chrome.scripting.executeScript({
       target: { tabId: tab.id },
@@ -35,12 +41,55 @@ async function fetchAndSaveTab(tab) {
             throw new Error('无法提取页面内容');
           }
 
+          // 初始化 Turndown
+          const turndownService = new TurndownService({
+            headingStyle: 'atx',
+            bulletListMarker: '-',
+            codeBlockStyle: 'fenced'
+          });
+
+          // 添加自定义规则：识别带有加粗样式的标签（如微信公众号常用的方式）
+          turndownService.addRule('inlineBold', {
+            filter: function (node) {
+              return node.nodeType === 1 && node.style && 
+                     (node.style.fontWeight === 'bold' || node.style.fontWeight === 'bolder' || parseInt(node.style.fontWeight) >= 600) &&
+                     node.nodeName !== 'STRONG' && node.nodeName !== 'B' && !/^H[1-6]$/.test(node.nodeName);
+            },
+            replacement: function (content, node) {
+              if (!content.trim()) return content;
+              // 如果是块级元素，不要破坏原有的换行
+              const isBlock = node.nodeName === 'P' || node.nodeName === 'SECTION' || node.nodeName === 'DIV';
+              let formatted = '**' + content.trim() + '**';
+              return isBlock ? '\n\n' + formatted + '\n\n' : formatted;
+            }
+          });
+          
+          // 移除图片相关容器
+          turndownService.addRule('removeImages', {
+            filter: ['img', 'picture', 'figure', 'figcaption'],
+            replacement: function () {
+              return '';
+            }
+          });
+          
+          // 移除链接，但保留链接文本
+          turndownService.addRule('removeLinks', {
+            filter: 'a',
+            replacement: function (content) {
+              return content;
+            }
+          });
+
+          // 将 HTML 内容转换为 Markdown
+          const markdownContent = turndownService.turndown(article.content);
+
           // 发送消息到 background script
           chrome.runtime.sendMessage({
             type: 'SAVE_ARTICLE',
             data: {
               title: article.title.trim(),
-              textContent: article.textContent.trim(),
+              textContent: markdownContent.trim(),
+              content: markdownContent.trim(),
               url: window.location.href,
             }
           });
@@ -129,27 +178,21 @@ async function saveArticle(article) {
     const summaryPrompt = result.summaryPrompt;
     
     // 检查文章是否已存在（基于标题去重）
-    if (!articles.some(a => a.title === article.title)) {
-      // 如果有 API Key 和提示词，立即生成总结
-      // if (apiKey && summaryPrompt && article.textContent) {
-      //   try {
-      //     article.summary = ""; // todo await summarizeTextWithGemini(apiKey, article.textContent, summaryPrompt);
-      //   } catch (error) {
-      //     console.error('生成总结失败:', error);
-      //     article.summary = '总结失败: ' + error.message;
-      //   }
-      // } else {
-      //   article.summary = '无总结 (请配置API Key和提示词)';
-      // }
-      
+    const existingIndex = articles.findIndex(a => a.title === article.title);
+    if (existingIndex !== -1) {
+      // 如果已存在，更新其内容（以便抓取到最新格式）
+      articles[existingIndex] = { ...articles[existingIndex], ...article };
+    } else {
+      // 不存在则新增
       articles.push(article);
-      await chrome.storage.local.set({ articles });
-      
-      // 广播更新消息
-      chrome.runtime.sendMessage({ type: 'ARTICLES_UPDATED' }).catch(() => {
-        // 忽略没有接收者的错误 (例如 popup 未打开时)
-      });
     }
+    
+    await chrome.storage.local.set({ articles });
+    
+    // 广播更新消息
+    chrome.runtime.sendMessage({ type: 'ARTICLES_UPDATED' }).catch(() => {
+      // 忽略没有接收者的错误 (例如 popup 未打开时)
+    });
   } catch (error) {
     console.error('保存文章失败:', error);
   }
