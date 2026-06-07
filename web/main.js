@@ -37,6 +37,31 @@ document.addEventListener('DOMContentLoaded', () => {
   apiKeyInput.value = settings.apiKey || '';
   summaryPromptInput.value = settings.summaryPrompt || '';
   
+  // Auth view initial setup
+  const authSetupSection = document.getElementById('auth-setup-section');
+  const customLoginBtn = document.getElementById('custom-login-btn');
+  const authSaveBtn = document.getElementById('auth-save-client-id-btn');
+  const authClientIdInput = document.getElementById('auth-clientId');
+  
+  if (!settings.clientId) {
+    authSetupSection.style.display = 'block';
+    customLoginBtn.style.display = 'none';
+  } else {
+    authSetupSection.style.display = 'none';
+    customLoginBtn.style.display = 'block';
+  }
+
+  authSaveBtn.addEventListener('click', () => {
+    const cid = authClientIdInput.value.trim();
+    if (!cid) {
+      alert("请输入 Client ID");
+      return;
+    }
+    settings.clientId = cid;
+    saveSettings(settings);
+    window.location.reload();
+  });
+
   let currentPresets = Array.isArray(settings.presetPrompts) ? settings.presetPrompts : [];
 
   function renderPresetEditor() {
