@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>GZH Articles Hub</title>
+    <!-- Google Identity Services -->
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <link rel="stylesheet" href="./style.css">
+  </head>
+  <body>
+    <!-- Not Logged In State -->
+    <div id="auth-view" class="main-container">
+      <h2>Welcome</h2>
+      <p>请先登录您的 Google 账号以同步文章</p>
+      <button id="custom-login-btn" style="margin-top: 1.5rem; padding: 0.8rem 2rem;">
+        Connect Google Drive
+      </button>
+      <div style="margin-top: 10px; font-size: 13px; color: #888;">
+        提示: 请先在设置面板配置你的 Client ID
+      </div>
+    </div>
+
+    <!-- Logged In State -->
+    <div class="main-container" id="app-view" style="display: none;">
+      
+      <!-- Tabs Navigation -->
+      <div class="tabs-nav">
+        <button class="tab-btn active" data-target="tab-articles">文章列表</button>
+        <button class="tab-btn" data-target="tab-summary">批量总结</button>
+        <button class="tab-btn" data-target="tab-chat">AI 对话</button>
+        <button class="tab-btn" data-target="tab-settings">设置</button>
+      </div>
+
+      <!-- Tab Content: Articles -->
+      <div class="tab-pane active" id="tab-articles">
+        <div id="loading-spinner" class="hidden" style="text-align: center; color: #666; padding: 20px;">
+          正在拉取文章...
+        </div>
+        <div class="articles-list" id="articles-list">
+          <!-- Cards will be injected here -->
+        </div>
+
+        <div class="actions">
+          <button id="select-all-btn">全选</button>
+          <button id="select-10-btn">选10个</button>
+          <button id="summarize-btn" disabled>批量总结</button>
+          <button id="send-gem-btn" disabled>发送到 Gem (0)</button>
+          <button id="refresh-btn">刷新</button>
+        </div>
+      </div>
+      
+      <!-- Tab Content: Batch Summary -->
+      <div class="tab-pane" id="tab-summary">
+        <div id="batch-summary-container" style="display: flex; flex-direction: column; gap: 15px;">
+          <p style="color: #888; text-align: center; margin-top: 20px;">暂无总结内容，请在文章列表中选择文章并点击“批量总结”</p>
+        </div>
+      </div>
+      
+      <!-- Tab Content: Chat -->
+      <div class="tab-pane" id="tab-chat">
+        <div class="chat-container">
+          <select id="chat-article-select" class="article-dropdown">
+            <option value="">-- 选择文章开始对话 --</option>
+          </select>
+          <div class="chat-history" id="chat-history">
+            <!-- 聊天记录将显示在这里 -->
+          </div>
+          <div class="chat-input">
+            <select id="preset-prompts-dropdown" style="margin-bottom: 10px; padding: 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; background: #fff;">
+              <option value="">-- 选择预设提示词 --</option>
+            </select>
+            <textarea id="chat-input" placeholder="输入你想和 AI 对话的内容..." rows="3"></textarea>
+            <div style="text-align: right;">
+              <button id="send-chat-btn">发送</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab Content: Settings -->
+      <div class="tab-pane" id="tab-settings">
+        <div class="settings-section" id="settings-section">
+          <div class="settings-group">
+            <h3>API 设置</h3>
+            <div class="setting-row">
+              <label for="clientId">Google Client ID:</label>
+              <input type="text" id="clientId" placeholder="xxx.apps.googleusercontent.com">
+            </div>
+            <div class="setting-row">
+              <label for="gemUrl">Gem URL:</label>
+              <input type="url" id="gemUrl" placeholder="https://gemini.google.com/gem/xxx">
+            </div>
+            <div class="setting-row">
+              <label for="apiKey">Gemini API Key:</label>
+              <input type="password" id="apiKey" placeholder="输入 Gemini API Key">
+            </div>
+            <div class="setting-block">
+              <label for="summaryPrompt">总结提示词:</label>
+              <textarea id="summaryPrompt" rows="3"></textarea>
+            </div>
+            <div class="setting-block">
+              <label>对话预设快捷词:</label>
+              <div id="preset-prompts-editor-container" style="display: flex; flex-direction: column; gap: 10px; max-height: 400px; overflow-y: auto; padding-right: 10px; border: 1px solid #eee; padding: 10px; border-radius: 4px;">
+                 <!-- JS will render inputs here -->
+              </div>
+              <button id="add-preset-btn" class="btn secondary" style="width: fit-content; margin-top: 10px;">+ 添加新预设</button>
+            </div>
+          </div>
+          <div class="settings-actions">
+            <button id="save-settings-btn" style="width: 100%;">保存设置</button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <script type="module" src="./main.js"></script>
+  </body>
+</html>

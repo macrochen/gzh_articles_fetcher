@@ -333,6 +333,7 @@ async function saveSettings() {
   const targetSites = document.getElementById('targetSites').value;
   const excludedAutoFetchUrls = document.getElementById('excludedAutoFetchUrls').value;
   const exportFormat = document.getElementById('exportFormat').value;
+  const driveFolderName = document.getElementById('driveFolderName') ? document.getElementById('driveFolderName').value : 'gzh_articles';
 
   await chrome.storage.local.set({
     geminiApiKey: apiKey,
@@ -341,6 +342,7 @@ async function saveSettings() {
     targetSites: targetSites,
     excludedAutoFetchUrls: excludedAutoFetchUrls,
     exportFormat: exportFormat,
+    driveFolderName: driveFolderName,
   });
 
   alert('设置已保存！');
@@ -355,7 +357,8 @@ async function loadSettings() {
     'summaryPrompt',
     'targetSites',
     'excludedAutoFetchUrls',
-    'exportFormat'
+    'exportFormat',
+    'driveFolderName'
   ]);
   if (result.geminiApiKey) {
     document.getElementById('geminiApiKey').value = result.geminiApiKey;
@@ -373,6 +376,9 @@ async function loadSettings() {
   }
   if (result.exportFormat) {
     document.getElementById('exportFormat').value = result.exportFormat;
+  }
+  if (result.driveFolderName && document.getElementById('driveFolderName')) {
+    document.getElementById('driveFolderName').value = result.driveFolderName;
   }
 }
 
@@ -868,10 +874,9 @@ async function sendSelectedToAiChat() {
   }
 }
 
-// 导出到 Google Drive (保持大部分不变，但确保文章数据是最新的)
-async function exportToDrive() {
+// 与 Google Drive 同步文章
+async function syncWithDrive() {
   try {
-    // 创建并显示加载指示器
     const loadingElement = document.createElement('div');
     loadingElement.id = 'exportLoading';
     loadingElement.style.position = 'fixed';
@@ -883,7 +888,7 @@ async function exportToDrive() {
     loadingElement.style.borderRadius = '5px';
     loadingElement.style.boxShadow = '0 0 10px rgba(0,0,0,0.2)';
     loadingElement.style.zIndex = '1000';
-    loadingElement.innerHTML = '<p>正在导出文章到Google Drive...</p><div class="loading-spinner"></div>';
+    loadingElement.innerHTML = '<p>正在与 Google Drive 同步文章，请稍候...</p><div class="loading-spinner"></div>';
     document.body.appendChild(loadingElement);
 
     const tokenObject = await chrome.identity.getAuthToken({ interactive: true });
@@ -894,73 +899,92 @@ async function exportToDrive() {
       return;
     }
 
-    const settings = await chrome.storage.local.get(['geminiApiKey', 'summaryPrompt']);
-    const apiKey = settings.geminiApiKey;
-    const summaryPrompt = settings.summaryPrompt;
+    const settings = await chrome.storage.local.get(['driveFolderName']);
+    const folderName = settings.driveFolderName || 'gzh_articles';
 
-    if (!apiKey || !summaryPrompt) {
-      alert('请先在设置中填写 Gemini API Key 和总结提示词！');
-      return;
-    }
-
+    // 1. 获取本地文章
     const result = await chrome.storage.local.get('articles');
-    const articles = result.articles || [];
+    let localArticles = result.articles || [];
     
-    if (articles.length === 0) {
-      alert('没有可导出的文章');
-      return;
+    // 2. 获取远端文章
+    const folderId = await getOrCreateFolder(accessToken, folderName);
+    const remoteFile = await getFileFromFolder(accessToken, folderId, 'articles_sync.json');
+    
+    let remoteArticlesMap = new Map();
+    let remoteFileId = null;
+    
+    if (remoteFile) {
+      remoteFileId = remoteFile.id;
+      if (remoteFile.content && Array.isArray(remoteFile.content)) {
+        remoteFile.content.forEach(article => {
+          remoteArticlesMap.set(article.url, article);
+        });
+      }
+    }
+
+    // 3. 执行合并逻辑
+    let mergedArticles = [];
+    let hasChanges = false;
+    
+    for (let localArticle of localArticles) {
+      const url = localArticle.url;
+      const remoteArticle = remoteArticlesMap.get(url);
+      
+      if (remoteArticle) {
+        // 在远端也存在：以远端为准（保留外部应用的修改和新增的 AI 总结），更新本地文章内容
+        mergedArticles.push({ ...localArticle, ...remoteArticle, driveSynced: true });
+        hasChanges = true;
+        remoteArticlesMap.delete(url); // 从 map 中移除，剩下的就是本地没有的
+      } else {
+        // 在远端不存在
+        if (localArticle.driveSynced === true) {
+          // 曾同步过但远端没了：外部应用删除了它。本地也删除（不加入 mergedArticles）
+          hasChanges = true;
+        } else {
+          // driveSynced 为 false 或是新文章：本地刚抓取的新文章，追加
+          mergedArticles.push({ ...localArticle, driveSynced: true });
+          hasChanges = true;
+        }
+      }
     }
     
-    const folderId = await getOrCreateFolder(accessToken, 'gzh');
-    
-    const today = new Date();
-    const formattedDate = `${(today.getMonth()+1).toString().padStart(2, '0')}${today.getDate().toString().padStart(2, '0')}${today.getHours().toString().padStart(2, '0')}${today.getMinutes().toString().padStart(2, '0')}${today.getSeconds().toString().padStart(2, '0')}`;
-    const jsonData = articles.map(article => ({
-      title: article.title,
-      url: article.url,
-      content: article.content,
-    }));
+    // 对于远端存在，但本地不存在的文章 (还在 remoteArticlesMap 中的)
+    // 意味着你在扩展中删除了它，直接丢弃（不加入 mergedArticles），下次同步就会从 Drive 删掉
+    if (remoteArticlesMap.size > 0) {
+        hasChanges = true;
+    }
 
-    const fileContent = JSON.stringify(jsonData, null, 2);
+    // 4. 双向更新
+    const fileContent = JSON.stringify(mergedArticles, null, 2);
     const metadata = {
-        name: `文章汇总_${formattedDate}.json`,
-        parents: [folderId],
+        name: 'articles_sync.json',
         mimeType: 'application/json'
-      };
+    };
+    if (!remoteFileId) {
+        metadata.parents = [folderId];
+    }
     
-    const response = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${accessToken}` },
-      body: createMultipartBodyWithFormData(metadata, fileContent)
-    });
+    await uploadOrUpdateFile(accessToken, metadata, fileContent, remoteFileId);
     
-    if (response.ok) {
-        alert('导出成功！');
-      } else {
-        let errorMessage = `上传失败: ${response.status} ${response.statusText}`;
-        try {
-          const errorJson = await response.json();
-          errorMessage += ` - ${JSON.stringify(errorJson)}`;
-        } catch (e) {
-          const errorText = await response.text();
-          errorMessage += ` - ${errorText}`;
-        }
-        throw new Error(errorMessage);
-      }
+    // 保存回本地
+    await chrome.storage.local.set({ articles: mergedArticles });
+    
+    // 刷新页面文章列表
+    loadArticles();
+    
+    alert('同步成功！');
   } catch (error) {
-    console.error('导出失败:', error);
-    alert('导出失败：' + (error.message || error));
+    console.error('同步失败:', error);
+    alert('同步失败：' + (error.message || error));
   } finally {
-    // 无论成功或失败，都移除加载指示器
     const loadingElement = document.getElementById('exportLoading');
     if (loadingElement) loadingElement.remove();
   }
 }
 
-
-// 获取或创建文件夹
+// 获取或创建 Google Drive 文件夹
 async function getOrCreateFolder(token, folderName) {
-  // 首先查找是否已存在同名文件夹
+  // 1. 查找文件夹
   const searchResponse = await fetch(
     `https://www.googleapis.com/drive/v3/files?q=name='${folderName}' and mimeType='application/vnd.google-apps.folder' and trashed=false`,
     {
@@ -974,33 +998,52 @@ async function getOrCreateFolder(token, folderName) {
     return searchResult.files[0].id;
   }
   
-  // 如果不存在，创建新文件夹
-  const createResponse = await fetch('https://www.googleapis.com/drive/v3/files', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      name: folderName,
-      mimeType: 'application/vnd.google-apps.folder'
-    })
-  });
+  // 2. 如果不存在则创建
+  const createResponse = await fetch(
+    'https://www.googleapis.com/drive/v3/files',
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        name: folderName,
+        mimeType: 'application/vnd.google-apps.folder'
+      })
+    }
+  );
   
-  const folder = await createResponse.json();
-  return folder.id;
+  const createResult = await createResponse.json();
+  return createResult.id;
 }
 
-function createMultipartBodyWithFormData(metadata, content) {
-    const formData = new FormData();
-    formData.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json; charset=UTF-8' }));
-    formData.append('file', new Blob([content], { type: 'text/plain' }), 'content.txt'); // 文件名可以随意
-    return formData;
+// 获取指定文件夹内的文件内容
+async function getFileFromFolder(token, folderId, fileName) {
+  const searchResponse = await fetch(
+    `https://www.googleapis.com/drive/v3/files?q=name='${fileName}' and '${folderId}' in parents and trashed=false&fields=files(id)`,
+    { headers: { Authorization: `Bearer ${token}` } }
+  );
+  const searchResult = await searchResponse.json();
+  if (searchResult.files && searchResult.files.length > 0) {
+    const fileId = searchResult.files[0].id;
+    // 获取文件内容
+    const contentResponse = await fetch(
+      `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`,
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+    try {
+      const content = await contentResponse.json();
+      return { id: fileId, content: content };
+    } catch (e) {
+      return { id: fileId, content: [] };
+    }
   }
-  
+  return null;
+}
 
-// 创建多部分请求体
-function createMultipartBody(metadata, content) {
+// 创建或更新文件
+async function uploadOrUpdateFile(token, metadata, content, fileId) {
   const boundary = 'foo_bar_baz';
   const delimiter = '\r\n--' + boundary + '\r\n';
   const closeDelimiter = '\r\n--' + boundary + '--';
@@ -1010,20 +1053,37 @@ function createMultipartBody(metadata, content) {
     'Content-Type: application/json; charset=UTF-8\r\n\r\n',
     JSON.stringify(metadata),
     delimiter,
-    'Content-Type: text/plain\r\n\r\n',
+    'Content-Type: application/json; charset=UTF-8\r\n\r\n',
     content,
     closeDelimiter
   ].join('');
+
+  const method = fileId ? 'PATCH' : 'POST';
+  const url = fileId 
+    ? `https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=multipart`
+    : 'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart';
+
+  const response = await fetch(url, {
+    method: method,
+    headers: { 
+        Authorization: `Bearer ${token}`,
+        'Content-Type': `multipart/related; boundary=${boundary}`
+    },
+    body: body
+  });
   
-  return body;
+  if (!response.ok) {
+    let errorMessage = `上传失败: ${response.status}`;
+    try {
+      const errorJson = await response.json();
+      errorMessage += ` - ${JSON.stringify(errorJson)}`;
+    } catch (e) {
+      errorMessage += ` - ${await response.text()}`;
+    }
+    throw new Error(errorMessage);
+  }
 }
-
 // 绑定保存设置按钮事件
-// document.getElementById('saveSettings').addEventListener('click', saveSettings);
-// 绑定导出按钮事件
-// document.getElementById('exportToDrive').addEventListener('click', exportToDrive);
-
-
 function toggleSettings(header) {
   const section = header.closest('.settings-section');
   section.classList.toggle('collapsed');
@@ -1033,7 +1093,8 @@ document.addEventListener('DOMContentLoaded', () => {
   loadSettings(); // 先加载设置
   loadArticles(); // 然后加载文章，这样可以立即尝试生成总结
   document.getElementById('saveSettings').addEventListener('click', saveSettings);
-  // document.getElementById('exportToDrive').addEventListener('click', exportToDrive);
+  
+  document.getElementById('syncToDrive').addEventListener('click', syncWithDrive);
   document.getElementById('exportSelectedToLocal').addEventListener('click', exportSelectedToLocal);
   document.getElementById('importFromLocal').addEventListener('click', () => document.getElementById('importFileInput').click());
   document.getElementById('importFileInput').addEventListener('change', importFromLocal);

@@ -12,6 +12,12 @@
   "host_permissions": [
     "<all_urls>"
   ],
+  "oauth2": {
+    "client_id": "440140112813-kugkudsogf6gehs91d1vl4n4ln0mqaed.apps.googleusercontent.com",
+    "scopes": [
+      "https://www.googleapis.com/auth/drive.file"
+    ]
+  },
   "background": {
     "service_worker": "background.js"
   },

@@ -58,6 +58,10 @@
                   <option value="md">Markdown (.md)</option>
                 </select>
               </div>
+              <div class="setting-block">
+                <label for="driveFolderName">Google Drive 文件夹名:</label>
+                <input type="text" id="driveFolderName" placeholder="默认: gzh_articles">
+              </div>
             </div>
             <div class="settings-actions">
               <button id="editPresetPrompts">编辑预设提示词</button>
@@ -75,7 +79,7 @@
         <input type="number" id="selectLastNInput" value="10" style="width: 50px; text-align: center;" title="输入要选择的最近文章数">
         <button id="summarizeSelected">总结</button>
         <button id="deleteSelected">删选</button>
-        <!-- <button id="exportToDrive">全导出到Google Drive</button> -->
+        <button id="syncToDrive">与 Google Drive 同步</button>
         <button id="exportSelectedToLocal">导出选中到本地</button>
         <button id="importFromLocal">导入本地文件</button>
         <input type="file" id="importFileInput" accept=".json" style="display: none;">
