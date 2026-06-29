@@ -140,239 +140,218 @@ const DEFAULT_PRESET_PROMPTS = [
 ];
 
 
-const DEFAULT_SUMMARY_PROMPT = `# 任务目标
-你需要扮演一个既能高效处理信息，又能把重点讲得清楚、具体、让人记得住，同时具备基本批判性思考能力的批量总结助手。请根据我提供的 JSON 格式文档，按顺序处理其中的每篇文章。
+const DEFAULT_AI_CHAT_URLS = `Gemini|https://gemini.google.com/u/3/gem/3b36254bb76a
+Kimi|https://www.kimi.com/?chat_enter_method=new_chat
+DS|https://chat.deepseek.com/
+Qwen|https://chat.qwen.ai/`;
 
-你的核心目标有三个：
-1. 让我能快速浏览，迅速抓住最重要的信息
-2. 让我看完后脑子里能留下具体东西，而不是看完跟没看一样
-3. 在最后帮我冷静地审视作者的观点，看看哪些地方说得好，哪些地方可能站不住
+const DEFAULT_EXCLUDED_URLS = `https://mp.weixin.qq.com/cgi-bin
+https://mp.weixin.qq.com/s/bus8hNmKp3BgsUjUo4_XGg
+https://mp.weixin.qq.com/s?__biz=`;
 
-请始终优先做到：
-- 少而精
-- 不重复
-- 有重点
-- 有记忆点
-- 忠于原文
-- 有判断力，但不乱发挥
+const DEFAULT_SUMMARY_PROMPT = `你是一位擅长提炼和转述的内容专家。我会给你一段JSON格式的文章数据，其中包含多篇独立文章。请对每篇文章分别进行总结，最终输出为Markdown格式。
 
-# 输入格式
-我的文档结构是 JSON 格式，每篇文章是一个 JSON 对象，包含以下字段：
-- \`title\`：文章标题
-- \`url\`：文章链接
-- \`content\`：文章主要内容
+## 重要约束
 
-你需要按顺序处理 JSON 中的每篇文章。
+- **严禁根据 \`url\` 字段去网上抓取或获取任何内容**。\`url\` 仅用于在输出标题中作为超链接，不得作为获取数据的依据。
+- **必须且只能**使用 JSON 中 \`content\` 字段提供的内容进行总结。
+- **标题必须完整保留**：JSON 中的 \`title\` 字段包含日期、来源公众号名称等信息，输出时这些前缀信息必须原样保留，不得删除或简化。
+- 如果 \`content\` 内容为空、过短或无法解析，按下方规则处理。
 
-# 主要任务：文章总结与处理
+## 处理规则
 
-请用简体中文大白话总结给定内容。对于需要总结的文章（非软文、非内容无法总结的情况），请按下面结构输出：
+1. **遍历处理**：JSON中的每篇文章都要单独处理，按数组顺序编号（1、2、3……）
+2. **每篇文章的输出结构**：
+   - 标题行（带链接，标题内容必须完整保留）：\`## [序号]. [完整文章标题](文章URL)\`
+   - 空一行
+   - 总结正文（见下方"总结风格要求"）
+   - 每篇文章之间用 \`---\` 分隔
 
-## 1. 推荐指数
-基于文章的信息量、启发性、论证质量和阅读价值，给出 1 到 5 星的推荐评级，用 ⭐️ 表示，并附上一句精炼、口语化的推荐语。
+3. **内容无法总结处理**：如果文章 \`content\` 字段为空、内容完全是乱码、或因内容过短/信息量过低而无法进行有意义的总结，请使用以下固定格式进行标注：
+   
+   [内容无法总结] 原文内容不足或无法有效解析。
 
-评分标准：
-- 1 到 2 星：价值较低，信息少、废话多、启发弱，或论证明显单薄
-- 3 星：中规中矩，有一些内容，但亮点有限，或观点有启发但支撑一般
-- 4 星：很有价值，值得一读，有收获，重点清楚，论证基本站得住
-- 5 星：非常值得读，信息密度高，启发强，论证扎实，读完能留下明显印象
+4. **软文识别与处理**：
+   - **判断标准**：只有当整篇文章**从头到尾**都在推广产品、课程或服务，没有任何独立信息价值时，才判定为纯软文。
+   - **混合内容处理**：如果文章前半部分或主体有**实质性内容**（如观点、知识、故事、分析），仅在末尾附带推广信息，则**正常总结可取内容**，推广部分直接忽略，不输出任何推广相关的文字。
+   - **纯软文标注**：如果整篇文章确实只有推广信息，使用以下固定格式标注，无需评分：
+     
+     [软文识别] 此内容可能为推广信息，核心价值较低。
 
-## 2. 这篇最值得知道的内容
-这一部分是全文最核心的总结区域，必须优先服务于“快速浏览”和“留下印象”。
+5. **总结风格要求**（参考 few-shot 示例）：
 
-请严格遵守这些要求：
-1. 只输出最重要的 3 到 5 条，宁少勿滥
-2. 每条只说一次，不重复，不换说法再说一遍
-3. 每条先讲清“重点是什么”，再带一个最值得记住的钩子
-4. 钩子只保留一个，优先从数据、例子、金句、反常识细节里选最有记忆点的那个
-5. 钩子必须服务于理解重点，不能为了显得生动而塞无关细节
-6. 不要导语，不要结尾，不要总分总
-7. 不要解释文章结构，不要评价有没有主线
-8. 不要空话，不要套话，不要把具体内容压成抽象词
-9. 不要按原文顺序机械复述，要按“读者最该先知道什么”排序
-10. 如果是杂谈、时评、热点评论，就按最值得看的几个话题归并，不要写成流水账
-11. 每条控制在 2 到 4 句，短而有信息量
-12. 如果某条没有值得保留的记忆点，宁可不要，也不要凑一个假钩子
+示例风格参考：
+> 原价六千的旗舰机，现在二手只要一千九。
+> 今天的主角是努比亚Z60 Ultra，24G内存加1TB存储的顶配版。
+> 这手机最大的卖点，是一块6.8英寸的真全面屏。
+> 没有挖孔，没有刘海，正面看过去就是一整块完整的玻璃，视觉极度舒适。
+> 性能方面完全够用，骁龙8Gen3处理器，搭配轻量化系统，流畅用个三五年没问题。
+> 影像也很顶，三颗镜头全部支持光学防抖，这在同价位里非常罕见。
+> 最夸张的是它的续航，塞进了一块6000毫安时的大电池。
+> 代价就是重量达到了246克，戴上壳妥妥的"半斤机"。
+> 如果你不介意它有点重，又想体验无挖孔屏幕和极致续航，这款二手神机绝对值得捡漏。
+> 再想一层：二手电子产品水很深，尤其是这种大内存顶配版，购买时一定要仔细验机，注意屏幕老化和电池损耗情况。
 
-写的时候注意：
-- 每条都要让我同时获得两样东西：这条到底在说什么；我之后最可能记住什么
-- 重点比钩子更重要，不能为了细节牺牲清晰度
-- 没有信息量的“总结腔”直接删掉
-- 目标不是完整复述原文，而是快速抓住重点，并且脑子里能留下具体东西
+从示例中提取的核心风格：
+- **开头直接抓人**：第一句就抛出最反常识或最吸睛的信息，不要铺垫。
+- **像朋友聊天**：用"今天的主角是""这手机最大的卖点是""代价就是"这类口语化表达。
+- **短句为主**：每句 15-25 字，一段最多 3-4 句。
+- **信息密度高**：没有废话，每句都在传递新信息。
+- **有画面感**："没有挖孔，没有刘海，正面看过去就是一整块完整的玻璃""戴上壳妥妥的'半斤机'"。
+- **有取舍有态度**：不面面俱到，只挑最打动人的点说，结尾给出明确判断。
+- **"再想一层"点到为止**：最后补一句反常识提醒或适用边界，不展开说教。
 
-## 3. 关键细节
-这一部分不要把上面的要点重说一遍，也不要重复展开同样的信息。
+通用要求：
+- 先抓全文唯一主线，再展开 2-4 个真正值得记住的点。
+- 每个点都自然讲清：它在说什么、为什么重要。
+- 记忆性细节要适度保留，比如有画面感的例子、反常识的冲突、很有作者味道的一句话。
+- 不要写成模板，不要有"解释：""举例：""关系："这类标签。
+- 结构要有，但要藏起来；有骨架，不要露骨架。
+- 不要出现生硬栏目标题，直接自然展开。
+- 一段只表达一个意思，不要把观点、原因、例子、结论挤成一大段。
+- 宁可多分段，也不要写成一堵墙。
+- 必须用简体中文输出。
 
-它的作用只有一个：
-补充 1 到 3 个最值得单独拎出来的具体细节，让文章更有画面感、更容易记住。
+**篇幅控制要求**：
+- 总结正文控制在 **200-400 字**之间（不含标题和链接）。
+- 字数下限：不能少于 200 字，否则主线和关键记忆点无法讲清楚。
+- 字数上限：不能超过 400 字，否则信息冗余，失去"高记忆度"的提炼价值。
+- 如果原文内容极短（如少于 500 字），可适当降低下限，但尽量保持信息密度。
+- 如果原文内容极长（如超过 5000 字），仍需控制在 400 字以内，只保留最核心的主线和 2-3 个记忆锚点。
 
-请严格遵守：
-1. 只写前面“这篇最值得知道的内容”里已经提到但值得展开一点点的细节
-2. 不要新增一堆次要信息
-3. 不要把同一重点完整再讲一遍
-4. 每条细节都要具体，优先保留故事、场景、例子、数字、冲突感
-5. 风格可以更口语化、更有画面感，但不能虚构
-6. 如果前面的要点已经足够清楚，没必要硬写这一部分，可以只保留 1 条，甚至省略到最短
+**移动端短句要求**：
+- 每句话尽量控制在 25 字以内。
+- 一个段落最多 3-4 句话，超过必须换段。
+- 复杂意思拆成多个短句，用逗号或句号断开。
+- 避免长从句、多层嵌套。
+- 段落之间空一行，视觉上留出呼吸感。
+- 适合拇指滑动阅读，一眼能扫完一段。
 
-## 4. 深度解读
-这一部分要同时做到两件事：
-1. 用朋友聊天的大白话，说出这篇文章真正值得想一层的地方
-2. 对作者的观点做适度的批判性审视，判断它哪里有价值，哪里可能有问题
+如果原文属于观点型、论证型、建议型内容，请在最后自然补一小段"再想一层"：
+提醒这个观点的成立条件、适用边界，或读者最容易产生的误解。
+只在确有必要时使用，点到为止，不要硬挑刺。该部分计入总字数。
 
-请围绕下面几个方向，挑最值得写的 1 到 3 点：
-- 这件事背后的逻辑是什么
-- 作者真正想提醒人的地方是什么
-- 哪个判断最有启发
-- 哪个地方容易被忽略
-- 作者的论证是否充分
-- 作者有没有把“观点”说得像“事实”
-- 作者依赖了哪些前提或默认假设
-- 作者有没有遗漏重要反例、限制条件或另一种解释
-- 这篇文章为什么值得读，或者为什么只能当作一种看法来参考
+风格：
+- 像一个很会讲的人在转述，而不是在交结构化作业
+- 像成熟作者写的短评式提炼
+- 口语化，但不要油腻
+- 多用对比、反常识、生活化类比
+- 不追求面面俱到，只保留最值得记住的部分
 
-批判性思考时请严格遵守：
-1. 先理解作者，再评价作者，不要歪曲原意
-2. 批判的重点放在论证质量、证据强弱、假设前提、视角局限上
-3. 可以指出作者说得不够完整、不够严谨、跳步太快、证据不足、以偏概全、情绪重于分析等问题
-4. 如果作者的观点本来就很扎实，也要明确说清它扎实在哪里，不要硬挑刺
-5. 不要为了显得聪明而过度抬杠
-6. 不要擅自引入原文完全没提到的大量外部信息
-7. 语气要冷静、克制、客观，像在帮我拆解观点，不像在吵架
-8. 控制篇幅，不要啰嗦，不要空泛升华，不要说教
-9. 如果原文主要是信息整理、新闻汇总或经验分享，没有很强的论证链条，就不要硬做高强度批判，只需提醒“哪些部分是事实，哪些部分是作者判断”即可
+## 输出示例格式
 
-## 5. 最终判断
-请用 1 到 2 句话，给出你对这篇文章的最终判断，格式尽量接近下面这种感觉：
-- “这篇值得看，主要值在……，但要防着作者把……说得太满。”
-- “这篇信息有用，但更像观点表达，结论可以参考，别全盘照收。”
-- “这篇最强的是……，最弱的是……。”
+    ## [1. 2026-6-28-果壳-龙眼 X 荔枝：是的，我们有两个孩子](https://mp.weixin.qq.com/s/xxx)
 
-要求：
-1. 一句话说清这篇文章到底值不值得看
-2. 一句话点出它最强和最弱的地方
-3. 语气干脆，别绕
+    （总结正文内容，200-400字，短句，多分段，参考 few-shot 风格）
 
-# 类型适配要求
-请根据文章类型调整表达重点，但始终保持通俗、具体、易懂：
+    ---
 
-- 财经/商业：优先抓趋势、判断、利益变化、关键数字、现实影响，同时留意作者是否把趋势判断说得过满
-- 健康/医学：优先抓结论、适用场景、风险提醒、科学依据，同时留意证据等级、样本范围、适用边界
-- 科技/AI：优先抓核心变化、真正有用的判断、典型案例、实际影响，同时留意作者是否高估技术能力或低估落地难度
-- 生活/观点文：优先抓最有共鸣的观察、最打动人的细节、最能引发思考的一点，同时留意作者是否把个人经验泛化成普遍规律
-- 时评/热点/杂谈：优先抓最值得知道的话题、最刺眼的判断、最能让人记住的细节，不要写成新闻流水账，同时留意作者是否情绪先行、论证滞后
+    ## [2. 2026-6-28-六神磊磊读金庸-今年，又有人说我踩中了高考题](https://mp.weixin.qq.com/s/yyy)
 
-# 风格要求
-1. 整体语言要像朋友聊天，口语化，有亲和力，但别油腻
-2. 要讲人话，简单清楚，不堆术语
-3. 允许适度生动，但不能为了好看而歪曲原文
-4. 忠于原文，不能虚构、不能篡改、不能把作者没说的话硬塞进去
-5. 总结的目标是帮我省时间，也帮我提高判断质量
-6. 批判性思考要有分寸，重点是帮我看清文章，不是单纯挑毛病
-
-# 软文识别与处理
-如果识别出文章主要目的是推广产品、课程或服务，也就是软文，请使用以下固定格式，且无需评分、无需总结：
-
-[软文识别] 此内容可能为推广信息，核心价值较低。
-
-# 内容无法总结处理
-如果文章 \`content\` 字段为空、内容完全是乱码、或内容过短、信息量过低，无法进行有意义的总结，请使用以下固定格式，且无需评分、无需总结：
-
-[内容无法总结] 原文内容不足或无法有效解析。
-
-# 编号要求
-为每篇文章分配一个从 1 开始的顺序编号，方便后续提问。
-
-# Markdown 要求
-1. 生成内容前，请检查 Markdown 语法
-2. 确保粗体标记前后有空格
-3. 标题行必须使用 Markdown 链接格式输出，将文章标题作为可点击文本，链接地址使用对应文章的 \`url\` 字段
-
-标题格式必须为：
-[编号] [《标题》](url)
-
-# 输出格式示例
-
-对于普通文章：
-
-[1] [《文章标题示例》](https://example.com/article)
-
-**推荐指数**：⭐️⭐️⭐️⭐️☆（有料，也有判断，但个别地方说得有点满。）
-
-**这篇最值得知道的内容**
-1. ...
-2. ...
-3. ...
-
-**关键细节**
-- ...
-- ...
-
-**深度解读**
-1. ...
-2. ...
-
-**最终判断**
-这篇值得看，主要值在……，但要防着作者把……说得太满。
-
-对于软文：
-
-[2] [《另一篇文章标题》](https://example.com/article)
-[软文识别] 此内容可能为推广信息，核心价值较低。
-
-对于内容无法总结的文章：
-
-[3] [《内容无法总结的文章标题》](https://example.com/article)
-[内容无法总结] 原文内容不足或无法有效解析。`
+    （总结正文内容，200-400字，短句，多分段，参考 few-shot 风格）`;
 
 // 函数定义区域
 // (确保 saveSettings 和 loadSettings 在这里定义)
 async function saveSettings() {
   const apiKey = document.getElementById('geminiApiKey').value;
-  const aiChatUrl = document.getElementById('aiChatUrl').value;
+  const aiChatUrls = document.getElementById('aiChatUrls').value;
   const prompt = document.getElementById('summaryPrompt').value;
   const targetSites = document.getElementById('targetSites').value;
   const excludedAutoFetchUrls = document.getElementById('excludedAutoFetchUrls').value;
   const exportFormat = document.getElementById('exportFormat').value;
   const driveFolderName = document.getElementById('driveFolderName') ? document.getElementById('driveFolderName').value : 'gzh_articles';
+  const includePromptInAiChat = document.getElementById('includePromptInAiChat') ? document.getElementById('includePromptInAiChat').checked : false;
 
   await chrome.storage.local.set({
     geminiApiKey: apiKey,
-    aiChatUrl: aiChatUrl,
+    aiChatUrls: aiChatUrls,
     summaryPrompt: prompt,
     targetSites: targetSites,
     excludedAutoFetchUrls: excludedAutoFetchUrls,
     exportFormat: exportFormat,
     driveFolderName: driveFolderName,
+    includePromptInAiChat: includePromptInAiChat,
   });
 
   alert('设置已保存！');
+  populateAiChatUrlSelect(aiChatUrls);
 }
 
+function populateAiChatUrlSelect(urlsString) {
+  const select = document.getElementById('aiChatUrlSelect');
+  if (!select) return;
+  
+  // 保存当前选中的值，以便重新填充后尽量恢复
+  const currentValue = select.value;
+  
+  select.innerHTML = '';
+  
+  if (!urlsString || !urlsString.trim()) {
+    const option = document.createElement('option');
+    option.value = '';
+    option.textContent = '请先在设置中添加 URL';
+    select.appendChild(option);
+    return;
+  }
 
+  const lines = urlsString.split('\n').map(line => line.trim()).filter(line => line);
+  lines.forEach(line => {
+    const parts = line.split('|');
+    const option = document.createElement('option');
+    if (parts.length > 1) {
+      option.textContent = parts[0].trim();
+      option.value = parts.slice(1).join('|').trim();
+    } else {
+      option.textContent = parts[0];
+      option.value = parts[0];
+    }
+    select.appendChild(option);
+  });
+  
+  // 尝试恢复选中的值
+  if (currentValue) {
+    select.value = currentValue;
+  }
+}
 
 async function loadSettings() {
   const result = await chrome.storage.local.get([
     'geminiApiKey',
     'aiChatUrl',
+    'aiChatUrls',
     'summaryPrompt',
     'targetSites',
     'excludedAutoFetchUrls',
     'exportFormat',
-    'driveFolderName'
+    'driveFolderName',
+    'includePromptInAiChat'
   ]);
   if (result.geminiApiKey) {
     document.getElementById('geminiApiKey').value = result.geminiApiKey;
   }
-  if (result.aiChatUrl) {
-    document.getElementById('aiChatUrl').value = result.aiChatUrl;
+  
+  if (result.aiChatUrls !== undefined) {
+    document.getElementById('aiChatUrls').value = result.aiChatUrls;
+    populateAiChatUrlSelect(result.aiChatUrls);
+  } else if (result.aiChatUrl) {
+    document.getElementById('aiChatUrls').value = result.aiChatUrl;
+    populateAiChatUrlSelect(result.aiChatUrl);
+    // 自动迁移
+    chrome.storage.local.set({ aiChatUrls: result.aiChatUrl });
+  } else {
+    document.getElementById('aiChatUrls').value = DEFAULT_AI_CHAT_URLS;
+    populateAiChatUrlSelect(DEFAULT_AI_CHAT_URLS);
   }
+
   // 如果没有保存的提示词，使用默认值
   document.getElementById('summaryPrompt').value = result.summaryPrompt || DEFAULT_SUMMARY_PROMPT;
   if (result.targetSites) {
     document.getElementById('targetSites').value = result.targetSites;
   }
-  if (result.excludedAutoFetchUrls) {
+  if (result.excludedAutoFetchUrls !== undefined) {
     document.getElementById('excludedAutoFetchUrls').value = result.excludedAutoFetchUrls;
+  } else {
+    document.getElementById('excludedAutoFetchUrls').value = DEFAULT_EXCLUDED_URLS;
   }
   if (result.exportFormat) {
     document.getElementById('exportFormat').value = result.exportFormat;
@@ -380,15 +359,25 @@ async function loadSettings() {
   if (result.driveFolderName && document.getElementById('driveFolderName')) {
     document.getElementById('driveFolderName').value = result.driveFolderName;
   }
+  if (result.includePromptInAiChat !== undefined && document.getElementById('includePromptInAiChat')) {
+    document.getElementById('includePromptInAiChat').checked = result.includePromptInAiChat;
+  }
 }
 
 // 添加恢复默认设置的函数
 async function resetAllSettings() {
   document.getElementById('summaryPrompt').value = DEFAULT_SUMMARY_PROMPT;
+  document.getElementById('aiChatUrls').value = DEFAULT_AI_CHAT_URLS;
+  document.getElementById('excludedAutoFetchUrls').value = DEFAULT_EXCLUDED_URLS;
   
   await chrome.storage.local.set({ 
     presetPrompts: DEFAULT_PRESET_PROMPTS,
+    aiChatUrls: DEFAULT_AI_CHAT_URLS,
+    excludedAutoFetchUrls: DEFAULT_EXCLUDED_URLS,
+    summaryPrompt: DEFAULT_SUMMARY_PROMPT
   });
+  
+  populateAiChatUrlSelect(DEFAULT_AI_CHAT_URLS);
   
   loadPresetPrompts();
   
@@ -844,9 +833,10 @@ function buildSelectedArticlesPayload(selectedArticles) {
 }
 
 async function sendSelectedToAiChat() {
-  const aiChatUrl = document.getElementById('aiChatUrl').value.trim();
+  const selectElement = document.getElementById('aiChatUrlSelect');
+  const aiChatUrl = selectElement ? selectElement.value.trim() : '';
   if (!aiChatUrl) {
-    alert('请先在设置中填写 AI Chat URL');
+    alert('请先在设置中填写并选择 AI Chat URL');
     return;
   }
 
@@ -855,7 +845,14 @@ async function sendSelectedToAiChat() {
     return;
   }
 
-  const payload = buildSelectedArticlesPayload(selectedArticles);
+  let payload = buildSelectedArticlesPayload(selectedArticles);
+
+  const includePrompt = document.getElementById('includePromptInAiChat') && document.getElementById('includePromptInAiChat').checked;
+  if (includePrompt) {
+    const settings = await chrome.storage.local.get(['summaryPrompt']);
+    const prompt = settings.summaryPrompt || DEFAULT_SUMMARY_PROMPT;
+    payload = `请根据以下提示词对提供的JSON数据进行总结：\n\n【总结提示词】\n${prompt}\n\n【需要总结的数据】\n${payload}`;
+  }
 
   try {
     await navigator.clipboard.writeText(payload);
@@ -1170,6 +1167,37 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
+  document.getElementById('selectPreviousBatchButton').addEventListener('click', function() {
+    const checkboxes = Array.from(document.querySelectorAll('.article-checkbox'));
+    const n = parseInt(document.getElementById('selectLastNInput').value, 10) || 0;
+    
+    if (n <= 0) return;
+
+    // 找到当前选中的第一个复选框（即最上方的一个）
+    const firstCheckedIndex = checkboxes.findIndex(checkbox => checkbox.checked);
+
+    // 取消所有选中
+    checkboxes.forEach(checkbox => checkbox.checked = false);
+
+    if (firstCheckedIndex === -1) {
+      // 如果当前没有选中任何内容，其行为退化为“选最近”
+      checkboxes.slice(-n).forEach(checkbox => checkbox.checked = true);
+    } else {
+      // 选中从 firstCheckedIndex 往上的 N 条记录
+      const startIndex = Math.max(0, firstCheckedIndex - n);
+      const endIndex = firstCheckedIndex - 1;
+      
+      if (endIndex < 0) {
+        alert('已经到最顶部了');
+        return;
+      }
+      
+      for (let i = startIndex; i <= endIndex; i++) {
+        checkboxes[i].checked = true;
+      }
+    }
+  });
+
   document.getElementById('copyToClipboard').addEventListener('click', async function() {
     const selectedArticles = await getSelectedArticlesFromSelection();
     if (!selectedArticles) {
@@ -1204,8 +1232,15 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   document.getElementById('summarizeSelected').addEventListener('click', summarizeSelectedArticles);
+  document.getElementById('clearSummary').addEventListener('click', clearSummaryResults);
   document.getElementById('sendToAiChat').addEventListener('click', sendSelectedToAiChat);
 
+  const includePromptCheckbox = document.getElementById('includePromptInAiChat');
+  if (includePromptCheckbox) {
+    includePromptCheckbox.addEventListener('change', async function() {
+      await chrome.storage.local.set({ includePromptInAiChat: this.checked });
+    });
+  }
 
   // 绑定全选功能
   // 全选按钮状态
@@ -1555,6 +1590,15 @@ async function summarizeSelectedArticles() {
   } finally {
     document.body.removeChild(loadingElement);
   }
+}
+
+// 清理总结结果
+function clearSummaryResults() {
+  const oldSummary = document.querySelector('.summary-results');
+  if (oldSummary) {
+    oldSummary.remove();
+  }
+  chrome.storage.local.remove('latestSummary');
 }
 
 // 加载预设提示词到下拉菜单

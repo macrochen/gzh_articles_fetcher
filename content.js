@@ -7,6 +7,10 @@
  * Clicking the button sends a message to the background script to initiate the article fetching process.
  */
 
+const DEFAULT_EXCLUDED_URLS = `https://mp.weixin.qq.com/cgi-bin
+https://mp.weixin.qq.com/s/bus8hNmKp3BgsUjUo4_XGg
+https://mp.weixin.qq.com/s?__biz=`;
+
 (async () => {
   // Ensure the script doesn't run in an iframe
   if (window.self !== window.top) {
@@ -21,7 +25,8 @@
     'pendingAiChatPayload'
   ]);
   const targetSites = splitLines(result.targetSites);
-  const excludedAutoFetchUrls = splitLines(result.excludedAutoFetchUrls);
+  const excludedAutoFetchUrlsString = result.excludedAutoFetchUrls !== undefined ? result.excludedAutoFetchUrls : DEFAULT_EXCLUDED_URLS;
+  const excludedAutoFetchUrls = splitLines(excludedAutoFetchUrlsString);
   const isWeChatUrl = currentUrl.includes('mp.weixin.qq.com');
   const isExcluded = matchesExcludedUrl(currentUrl, excludedAutoFetchUrls);
 
