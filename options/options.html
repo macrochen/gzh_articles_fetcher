@@ -74,24 +74,32 @@
       <h1 id="articles-list-title">文章列表</h1>
       <div class="articles-list" id="articlesList"></div>
       <div class="actions">
-        <button id="selectAll">全选</button>
-        <button id="selectLastNButton">选最近</button>
-        <input type="number" id="selectLastNInput" value="10" style="width: 50px; text-align: center;" title="输入要选择的最近文章数">
-        <button id="selectPreviousBatchButton">选上一批</button>
-        <button id="summarizeSelected">总结</button>
-        <button id="clearSummary">清理总结</button>
-        <button id="deleteSelected">删选</button>
-        <button id="syncToDrive">与 Google Drive 同步</button>
-        <button id="exportSelectedToLocal">导出选中到本地</button>
-        <button id="importFromLocal">导入本地文件</button>
-        <input type="file" id="importFileInput" accept=".json" style="display: none;">
-        <button id="copyToClipboard">选中到剪贴板</button>
-        <label style="display: inline-flex; align-items: center; margin-left: 10px; margin-right: 10px; font-size: 13px; cursor: pointer;">
-          <input type="checkbox" id="includePromptInAiChat" style="margin-right: 4px; cursor: pointer;">
-          带上提示词
-        </label>
-        <select id="aiChatUrlSelect" style="margin-right: 4px; font-size: 13px; max-width: 150px;"></select>
-        <button id="sendToAiChat">发送到 AI Chat</button>
+        <div class="action-group">
+          <button id="selectAll">全选</button>
+          <button id="selectLastNButton">选最近</button>
+          <input type="number" id="selectLastNInput" value="5" style="width: 50px; text-align: center;" title="输入要选择的最近文章数">
+          <button id="selectPreviousBatchButton">选上一批</button>
+          <button id="deleteSelected">删除选中</button>
+        </div>
+
+        <div class="action-group">
+          <label style="display: inline-flex; align-items: center; margin-right: 10px; font-size: 13px; cursor: pointer;">
+            <input type="checkbox" id="includePromptInAiChat" style="margin-right: 4px; cursor: pointer;">
+            带上提示词
+          </label>
+          <select id="aiChatUrlSelect" style="margin-right: 4px; font-size: 13px; max-width: 150px;"></select>
+          <button id="sendToAiChat" style="background-color: #007bff; color: white; border: none;">发送到 AI Chat</button>
+          <button id="summarizeSelected">本地总结</button>
+        </div>
+
+        <div class="action-group">
+          <button id="exportSelectedToLocal">导出选中</button>
+          <button id="importFromLocal">导入数据</button>
+          <input type="file" id="importFileInput" accept=".json" style="display: none;">
+          <button id="syncToDrive">Google Drive 同步</button>
+          <button id="copyToClipboard">选中到剪贴板</button>
+          <button id="clearSummary">清理总结</button>
+        </div>
       </div>
     </div>
     

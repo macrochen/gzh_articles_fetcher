@@ -582,9 +582,23 @@ button:hover {
 
 .actions {
   display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: flex-start;
+  margin-top: 10px;
+}
+
+.action-group {
+  display: flex;
   flex-wrap: wrap;
-  gap: 10px;
   align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  background-color: #f8f9fa;
+  border: 1px solid #e9ecef;
+  border-radius: 6px;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .actions button {
