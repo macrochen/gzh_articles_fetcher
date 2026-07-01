@@ -261,6 +261,7 @@ async function saveSettings() {
   const exportFormat = document.getElementById('exportFormat').value;
   const driveFolderName = document.getElementById('driveFolderName') ? document.getElementById('driveFolderName').value : 'gzh_articles';
   const includePromptInAiChat = document.getElementById('includePromptInAiChat') ? document.getElementById('includePromptInAiChat').checked : false;
+  const autoSendInterval = document.getElementById('autoSendInterval') ? parseFloat(document.getElementById('autoSendInterval').value) : 5;
 
   await chrome.storage.local.set({
     geminiApiKey: apiKey,
@@ -271,6 +272,7 @@ async function saveSettings() {
     exportFormat: exportFormat,
     driveFolderName: driveFolderName,
     includePromptInAiChat: includePromptInAiChat,
+    autoSendInterval: autoSendInterval,
   });
 
   alert('设置已保存！');
@@ -324,7 +326,8 @@ async function loadSettings() {
     'excludedAutoFetchUrls',
     'exportFormat',
     'driveFolderName',
-    'includePromptInAiChat'
+    'includePromptInAiChat',
+    'autoSendInterval'
   ]);
   if (result.geminiApiKey) {
     document.getElementById('geminiApiKey').value = result.geminiApiKey;
@@ -362,6 +365,9 @@ async function loadSettings() {
   if (result.includePromptInAiChat !== undefined && document.getElementById('includePromptInAiChat')) {
     document.getElementById('includePromptInAiChat').checked = result.includePromptInAiChat;
   }
+  if (result.autoSendInterval !== undefined && document.getElementById('autoSendInterval')) {
+    document.getElementById('autoSendInterval').value = result.autoSendInterval;
+  }
 }
 
 // 添加恢复默认设置的函数
@@ -369,6 +375,9 @@ async function resetAllSettings() {
   document.getElementById('summaryPrompt').value = DEFAULT_SUMMARY_PROMPT;
   document.getElementById('aiChatUrls').value = DEFAULT_AI_CHAT_URLS;
   document.getElementById('excludedAutoFetchUrls').value = DEFAULT_EXCLUDED_URLS;
+  if (document.getElementById('autoSendInterval')) {
+    document.getElementById('autoSendInterval').value = 5;
+  }
   
   await chrome.storage.local.set({ 
     presetPrompts: DEFAULT_PRESET_PROMPTS,
@@ -392,10 +401,6 @@ async function loadArticles() {
   const summaryPrompt = result.summaryPrompt;
   const listElement = document.getElementById('articlesList');
   const listTitleElement = document.getElementById('articles-list-title');
-
-  if (listTitleElement) {
-    listTitleElement.textContent = `文章列表 (${articles.length})`;
-  }
 
   if (articles.length === 0) {
     listElement.innerHTML = '<p>暂无文章，请先通过插件抓取。</p>';
@@ -832,17 +837,17 @@ function buildSelectedArticlesPayload(selectedArticles) {
   }, null, 2);
 }
 
-async function sendSelectedToAiChat() {
+async function sendSelectedToAiChat(isAuto = false) {
   const selectElement = document.getElementById('aiChatUrlSelect');
   const aiChatUrl = selectElement ? selectElement.value.trim() : '';
   if (!aiChatUrl) {
-    alert('请先在设置中填写并选择 AI Chat URL');
-    return;
+    if (!isAuto) alert('请先在设置中填写并选择 AI Chat URL');
+    return false;
   }
 
   const selectedArticles = await getSelectedArticlesFromSelection();
-  if (!selectedArticles) {
-    return;
+  if (!selectedArticles || selectedArticles.length === 0) {
+    return false;
   }
 
   let payload = buildSelectedArticlesPayload(selectedArticles);
@@ -864,10 +869,14 @@ async function sendSelectedToAiChat() {
       }
     });
     await chrome.tabs.create({ url: aiChatUrl });
-    alert('已复制文章内容并打开 AI Chat 页面。如未自动填入，可直接粘贴。');
+    // 如果不是自动发送，则不再显示 alert（根据用户最新要求，手动也不显示 alert）
+    // 但如果有必要，可以保留这里，用户说：“我手动发送的这个提示也要屏蔽掉，因为没什么意义。”
+    // 所以直接不使用 alert
+    return true;
   } catch (error) {
     console.error('发送到 AI Chat 失败:', error);
-    alert('发送到 AI Chat 失败：' + error.message);
+    if (!isAuto) alert('发送到 AI Chat 失败：' + error.message);
+    return false;
   }
 }
 
@@ -1168,33 +1177,14 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   document.getElementById('selectPreviousBatchButton').addEventListener('click', function() {
-    const checkboxes = Array.from(document.querySelectorAll('.article-checkbox'));
-    const n = parseInt(document.getElementById('selectLastNInput').value, 10) || 0;
-    
-    if (n <= 0) return;
+    selectPreviousBatch(false);
+  });
 
-    // 找到当前选中的第一个复选框（即最上方的一个）
-    const firstCheckedIndex = checkboxes.findIndex(checkbox => checkbox.checked);
-
-    // 取消所有选中
-    checkboxes.forEach(checkbox => checkbox.checked = false);
-
-    if (firstCheckedIndex === -1) {
-      // 如果当前没有选中任何内容，其行为退化为“选最近”
-      checkboxes.slice(-n).forEach(checkbox => checkbox.checked = true);
+  document.getElementById('autoSendToAiChat').addEventListener('click', function() {
+    if (isAutoSending) {
+      stopAutoSend();
     } else {
-      // 选中从 firstCheckedIndex 往上的 N 条记录
-      const startIndex = Math.max(0, firstCheckedIndex - n);
-      const endIndex = firstCheckedIndex - 1;
-      
-      if (endIndex < 0) {
-        alert('已经到最顶部了');
-        return;
-      }
-      
-      for (let i = startIndex; i <= endIndex; i++) {
-        checkboxes[i].checked = true;
-      }
+      startAutoSend();
     }
   });
 
@@ -1843,4 +1833,122 @@ async function importFromLocal(event) {
     }
   };
   reader.readAsText(file);
+}
+  if (appVersionElement) {
+    appVersionElement.textContent = `v${manifest.version}`;
+  }
+});
+
+// ==========================
+// 自动化发送与批次选择逻辑
+// ==========================
+
+function selectPreviousBatch(isAuto = false) {
+  const checkboxes = Array.from(document.querySelectorAll('.article-checkbox'));
+  const n = parseInt(document.getElementById('selectLastNInput').value, 10) || 0;
+  
+  if (n <= 0) return false;
+
+  const firstCheckedIndex = checkboxes.findIndex(checkbox => checkbox.checked);
+  checkboxes.forEach(checkbox => checkbox.checked = false);
+
+  if (firstCheckedIndex === -1) {
+    checkboxes.slice(-n).forEach(checkbox => checkbox.checked = true);
+    return checkboxes.length > 0;
+  } else {
+    const startIndex = Math.max(0, firstCheckedIndex - n);
+    const endIndex = firstCheckedIndex - 1;
+    
+    if (endIndex < 0) {
+      if (!isAuto) alert('已经到最顶部了');
+      return false; // 到达顶部
+    }
+    
+    for (let i = startIndex; i <= endIndex; i++) {
+      checkboxes[i].checked = true;
+    }
+    return true;
+  }
+}
+
+let autoSendIntervalId = null;
+let autoSendCountdownIntervalId = null;
+let isAutoSending = false;
+let autoSendRemainingSeconds = 0;
+
+function updateAutoSendButtonUI() {
+  const btn = document.getElementById('autoSendToAiChat');
+  if (!btn) return;
+  if (isAutoSending) {
+    const mins = Math.floor(autoSendRemainingSeconds / 60);
+    const secs = autoSendRemainingSeconds % 60;
+    btn.textContent = `停止自动发送 (剩余 ${mins}:${secs.toString().padStart(2, '0')})`;
+    btn.style.backgroundColor = '#dc3545';
+  } else {
+    btn.textContent = '自动发送';
+    btn.style.backgroundColor = '#28a745';
+  }
+}
+
+async function startAutoSend() {
+  if (isAutoSending) return;
+  
+  const selectElement = document.getElementById('aiChatUrlSelect');
+  if (!selectElement || !selectElement.value.trim()) {
+    alert('请先在设置中填写并选择 AI Chat URL');
+    return;
+  }
+
+  isAutoSending = true;
+
+  // 1. 先尝试发送当前选中的
+  let selected = await getSelectedArticlesFromSelection();
+  if (!selected || selected.length === 0) {
+    // 如果没有选中的，自动选上一批
+    if (!selectPreviousBatch(true)) {
+      alert('没有可发送的文章');
+      stopAutoSend();
+      return;
+    }
+  }
+  
+  // 发送第一批
+  await sendSelectedToAiChat(true);
+
+  const intervalMinutes = parseFloat(document.getElementById('autoSendInterval').value) || 5;
+  const intervalMs = Math.max(1000, intervalMinutes * 60 * 1000); // 最少 1 秒
+  
+  autoSendRemainingSeconds = Math.floor(intervalMs / 1000);
+  updateAutoSendButtonUI();
+
+  // 每秒更新倒计时 UI
+  autoSendCountdownIntervalId = setInterval(() => {
+    autoSendRemainingSeconds--;
+    if (autoSendRemainingSeconds <= 0) {
+      autoSendRemainingSeconds = 0;
+    }
+    updateAutoSendButtonUI();
+  }, 1000);
+
+  // 定时执行下一批
+  autoSendIntervalId = setInterval(async () => {
+    const hasMore = selectPreviousBatch(true);
+    if (!hasMore) {
+      alert('所有文章自动发送完毕！');
+      stopAutoSend();
+      return;
+    }
+    await sendSelectedToAiChat(true);
+    autoSendRemainingSeconds = Math.floor(intervalMs / 1000);
+    updateAutoSendButtonUI();
+  }, intervalMs);
+}
+
+function stopAutoSend() {
+  isAutoSending = false;
+  if (autoSendIntervalId) clearInterval(autoSendIntervalId);
+  if (autoSendCountdownIntervalId) clearInterval(autoSendCountdownIntervalId);
+  autoSendIntervalId = null;
+  autoSendCountdownIntervalId = null;
+  updateAutoSendButtonUI();
 }
