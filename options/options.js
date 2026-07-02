@@ -402,6 +402,10 @@ async function loadArticles() {
   const listElement = document.getElementById('articlesList');
   const listTitleElement = document.getElementById('articles-list-title');
 
+  if (listTitleElement) {
+    listTitleElement.textContent = `文章列表 (${articles.length})`;
+  }
+
   if (articles.length === 0) {
     listElement.innerHTML = '<p>暂无文章，请先通过插件抓取。</p>';
     return;
@@ -1299,6 +1303,10 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
   
+  const appVersionElement = document.getElementById('appVersion');
+  if (appVersionElement) {
+    appVersionElement.textContent = `v${manifest.version}`;
+  }
 });
 
 function scrollToActionsCenter() {
@@ -1834,10 +1842,6 @@ async function importFromLocal(event) {
   };
   reader.readAsText(file);
 }
-  if (appVersionElement) {
-    appVersionElement.textContent = `v${manifest.version}`;
-  }
-});
 
 // ==========================
 // 自动化发送与批次选择逻辑
